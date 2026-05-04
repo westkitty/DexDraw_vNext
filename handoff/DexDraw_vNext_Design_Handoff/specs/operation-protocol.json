@@ -1,0 +1,59 @@
+{
+  "durableOps": [
+    "object.create",
+    "object.update",
+    "object.delete",
+    "object.reorder",
+    "checkpoint.create",
+    "checkpoint.restore"
+  ],
+  "ephemeralMessages": [
+    "presence.cursor",
+    "presence.laser",
+    "presence.selection",
+    "client.ping"
+  ],
+  "clientOpEnvelope": {
+    "type": "client.op",
+    "boardId": "uuid",
+    "clientId": "uuid",
+    "clientSeq": "number",
+    "opId": "uuid",
+    "opType": "durable op string",
+    "payload": "schema-specific object",
+    "sentAt": "ISO timestamp"
+  },
+  "serverOpEnvelope": {
+    "type": "server.op",
+    "boardId": "uuid",
+    "serverSeq": "number",
+    "clientId": "uuid",
+    "clientSeq": "number",
+    "opId": "uuid",
+    "opType": "durable op string",
+    "payload": "schema-specific object",
+    "createdAt": "ISO timestamp"
+  },
+  "authorization": {
+    "owner": [
+      "all"
+    ],
+    "edit": [
+      "object.create",
+      "object.update",
+      "object.delete",
+      "object.reorder",
+      "presence.*"
+    ],
+    "comment": [
+      "comment.create",
+      "comment.update",
+      "presence.*"
+    ],
+    "view": [
+      "presence.cursor",
+      "presence.laser"
+    ],
+    "unknown": []
+  }
+}

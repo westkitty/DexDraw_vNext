@@ -1,0 +1,28 @@
+{
+  "name": "@dexdraw/server-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check src"
+  },
+  "dependencies": {
+    "@dexdraw/shared-core": "workspace:*",
+    "@dexdraw/shared-protocol": "workspace:*",
+    "fastify": "latest",
+    "@fastify/websocket": "latest",
+    "@fastify/cors": "latest",
+    "zod": "latest",
+    "drizzle-orm": "latest",
+    "pg": "latest",
+    "jose": "latest"
+  },
+  "devDependencies": {
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

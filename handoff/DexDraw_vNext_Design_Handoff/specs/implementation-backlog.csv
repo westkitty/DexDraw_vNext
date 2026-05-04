@@ -1,0 +1,15 @@
+ID,Priority,Area,Task,Acceptance
+DXD-001,P0,Scaffold,Create pnpm monorepo layout,"pnpm install, typecheck, build scripts exist"
+DXD-002,P0,Protocol,Define board object and op schemas,invalid payloads fail tests
+DXD-003,P0,Server,Implement token verified WebSocket join,unknown user cannot send durable op
+DXD-004,P0,Server,Persist and sequence stroke op,serverSeq assigned and replay works
+DXD-005,P0,Client,Implement create/join flow,user can create and join board
+DXD-006,P0,Client,Implement pen tool and canvas render,local stroke appears
+DXD-007,P0,E2E,Two-client stroke sync test,client B sees client A stroke
+DXD-008,P1,UX,Template picker,template creates initial objects
+DXD-009,P1,Tools,Rectangle and ellipse tools,shape ops sync and replay
+DXD-010,P1,Tools,Text tool,text object syncs and replays
+DXD-011,P1,Presence,Cursors and laser pointer,ephemeral messages show and expire
+DXD-012,P1,Export,PNG export,non-empty PNG downloads
+DXD-013,P2,Export,Markdown/PDF export,exports include durable text/note state
+DXD-014,P2,Recovery,Checkpoint create/restore,restore broadcasts canonical reset

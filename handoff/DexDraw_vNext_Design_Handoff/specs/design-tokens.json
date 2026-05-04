@@ -1,0 +1,27 @@
+{
+  "colorRoles": {
+    "background": "app background",
+    "surface": "panel/card background",
+    "text": "primary text",
+    "mutedText": "secondary text",
+    "accent": "active tool / primary action",
+    "danger": "destructive action",
+    "success": "connected / saved",
+    "warning": "reconnecting / degraded",
+    "focus": "visible focus ring"
+  },
+  "typographyRoles": [
+    "display",
+    "heading",
+    "body",
+    "label",
+    "caption",
+    "code"
+  ],
+  "spacing": "4px base scale",
+  "radius": {
+    "control": "8px",
+    "panel": "12px"
+  },
+  "motion": "respect prefers-reduced-motion"
+}

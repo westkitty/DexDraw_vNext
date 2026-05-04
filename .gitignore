@@ -1,0 +1,10 @@
+node_modules
+dist
+.vite
+playwright-report
+test-results
+apps/server-api/.dexdraw-data
+**/.dexdraw-data
+coverage
+refs
+*.tsbuildinfo

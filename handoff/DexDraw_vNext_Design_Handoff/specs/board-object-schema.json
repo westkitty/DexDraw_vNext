@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DexDraw vNext Board Object Schema",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/stroke"
+    },
+    {
+      "$ref": "#/$defs/rectangle"
+    },
+    {
+      "$ref": "#/$defs/ellipse"
+    },
+    {
+      "$ref": "#/$defs/text"
+    },
+    {
+      "$ref": "#/$defs/note"
+    }
+  ],
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "createdBy",
+        "createdAt",
+        "updatedAt",
+        "zIndex"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "type": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "zIndex": {
+          "type": "integer"
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "pressure": {
+          "type": "number"
+        }
+      }
+    },
+    "stroke": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "points",
+            "style"
+          ],
+          "properties": {
+            "type": {
+              "const": "stroke"
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/point"
+              }
+            },
+            "style": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    },
+    "rectangle": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "x",
+            "y",
+            "width",
+            "height",
+            "style"
+          ],
+          "properties": {
+            "type": {
+              "const": "rectangle"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            },
+            "style": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    },
+    "ellipse": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "cx",
+            "cy",
+            "rx",
+            "ry",
+            "style"
+          ],
+          "properties": {
+            "type": {
+              "const": "ellipse"
+            },
+            "cx": {
+              "type": "number"
+            },
+            "cy": {
+              "type": "number"
+            },
+            "rx": {
+              "type": "number"
+            },
+            "ry": {
+              "type": "number"
+            },
+            "style": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    },
+    "text": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "x",
+            "y",
+            "text",
+            "style"
+          ],
+          "properties": {
+            "type": {
+              "const": "text"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "text": {
+              "type": "string"
+            },
+            "style": {
+              "type": "object"
+            }
+          }
+        }
+      ]
+    },
+    "note": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "x",
+            "y",
+            "width",
+            "height",
+            "text"
+          ],
+          "properties": {
+            "type": {
+              "const": "note"
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            },
+            "text": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

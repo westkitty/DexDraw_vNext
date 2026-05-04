@@ -1,0 +1,24 @@
+{
+  "name": "dexdraw-vnext",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @dexdraw/server-api --filter @dexdraw/client-web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:e2e": "playwright test",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@playwright/test": "^1.54.2",
+    "typescript": "^5.9.3"
+  }
+}

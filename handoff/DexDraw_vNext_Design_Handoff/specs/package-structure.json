@@ -1,0 +1,51 @@
+{
+  "project": "DexDraw vNext",
+  "package_manager": "pnpm",
+  "apps": {
+    "client-web": {
+      "framework": "React + Vite",
+      "responsibilities": [
+        "home/create/join",
+        "canvas",
+        "tools",
+        "presence",
+        "exports",
+        "client websocket"
+      ]
+    },
+    "server-api": {
+      "framework": "Fastify",
+      "responsibilities": [
+        "REST API",
+        "WebSocket rooms",
+        "auth",
+        "operation log",
+        "snapshots",
+        "exports"
+      ]
+    }
+  },
+  "packages": {
+    "shared-core": [
+      "geometry",
+      "stroke normalization",
+      "hit testing",
+      "bounds",
+      "transforms"
+    ],
+    "shared-protocol": [
+      "Zod schemas",
+      "operation envelopes",
+      "board objects",
+      "errors",
+      "presence"
+    ]
+  },
+  "forbidden": [
+    "ad hoc any protocol",
+    "unknown users default to edit",
+    "client-exposed provider secrets",
+    "monolithic Board.tsx",
+    "monolithic server.ts"
+  ]
+}

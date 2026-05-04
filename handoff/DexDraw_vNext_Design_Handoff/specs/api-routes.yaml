@@ -1,0 +1,32 @@
+openapi: 3.1.0
+info:
+  title: DexDraw vNext API
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Service health check
+  /api/templates:
+    get:
+      summary: List board templates
+  /api/boards:
+    post:
+      summary: Create a board and return owner join token
+  /api/boards/{boardId}/join:
+    post:
+      summary: Join a board and receive access token when allowed
+  /api/boards/{boardId}/snapshot:
+    get:
+      summary: Return latest authorized snapshot and server sequence
+  /api/boards/{boardId}/checkpoints:
+    get:
+      summary: List checkpoints
+    post:
+      summary: Create checkpoint
+  /api/boards/{boardId}/export/markdown:
+    post:
+      summary: Export board to Markdown
+websocket:
+  /ws/boards/{boardId}:
+    auth: signed board token required before durable operations
+    firstProof: two-client stroke sync
