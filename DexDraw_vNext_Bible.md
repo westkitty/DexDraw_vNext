@@ -458,3 +458,56 @@ Next Step / Handoff:
   3. undo/redo
   4. checkpoints and restore
   5. Markdown/PDF export
+
+
+### Entry 6 - Git initialized, committed, and pushed
+
+Summary:
+- Initialized Git in the workspace, created the first repository commit, created a new private GitHub repository, and pushed `main`.
+
+Reason / Intent:
+- User explicitly requested stage, commit, push, and Git initialization.
+
+Files Changed:
+- `DexDraw_vNext_Bible.md`
+- `.gitignore`
+
+Commands Run:
+```text
+git init
+git branch -m main
+git add -A -- .
+git rm -r --cached --ignore-unmatch -- ':(glob)**/.dexdraw-data/**' ':(glob)**/*.tsbuildinfo'
+git commit -m "feat: build DexDraw vNext proof and tooling baseline"
+gh repo create westkitty/DexDraw_vNext --private --source=. --remote=origin --push
+```
+
+Command Intent:
+- Initialize source control, ensure generated database/build artifacts are excluded from the initial history, create the first commit, and push the project to a new remote.
+
+Outputs Generated:
+- Local Git repository in this workspace.
+- Initial commit:
+  - `f2450d0` `feat: build DexDraw vNext proof and tooling baseline`
+- New private GitHub repository:
+  - [westkitty/DexDraw_vNext](https://github.com/westkitty/DexDraw_vNext)
+
+Decisions:
+- Created a new private repository instead of pushing into `westkitty/dexDraw` or either Redux reference repository. That avoids contaminating the historical/reference repos with vNext’s separate history.
+- Added ignore coverage for:
+  - `refs`
+  - embedded `.dexdraw-data`
+  - `*.tsbuildinfo`
+
+Bugs / Blockers:
+- Running Git mutations in parallel produced stale `index.lock` conflicts. Resolved by switching back to sequential Git operations.
+- The first staging pass accidentally captured generated `PGlite` files and TypeScript build metadata before the ignore rules were tightened. These were removed from the index before committing.
+
+State After Completion:
+- Branch: `main`
+- Remote: `origin`
+- Push target is configured and tracking:
+  - `origin/main`
+
+Next Step / Handoff:
+- Continue implementation from the pushed `main` branch in `westkitty/DexDraw_vNext`.
