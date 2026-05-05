@@ -83,6 +83,8 @@ export async function createStore(
   await ensureSchema(client);
   const db = drizzle(client);
 
+  const SYSTEM_CLIENT_ID = "00000000-0000-4000-8000-000000000000";
+
   return {
     async createBoard(input: {
       name: string;
@@ -108,7 +110,7 @@ export async function createStore(
         await db.insert(operations).values({
           boardId,
           serverSeq,
-          clientId: "system",
+          clientId: SYSTEM_CLIENT_ID,
           clientSeq: serverSeq,
           opId: crypto.randomUUID(),
           opType: "object.create",

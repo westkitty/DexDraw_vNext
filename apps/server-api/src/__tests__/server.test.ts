@@ -544,4 +544,31 @@ describe("server api", () => {
     ws.close();
     await app.close();
   }, 25_000);
+
+  it("returns valid ops for a board created from a non-blank template", async () => {
+    const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/boards",
+      payload: {
+        name: "Meeting",
+        templateId: "meeting-grid",
+        displayName: "Owner",
+      },
+    });
+    const board = created.json() as { boardId: string; ownerToken: string };
+
+    const ops = await app.inject({
+      method: "GET",
+      url: `/api/boards/${board.boardId}/ops?since=0`,
+      headers: { authorization: `Bearer ${board.ownerToken}` },
+    });
+
+    expect(ops.statusCode).toBe(200);
+    const { OpsSinceResponseSchema } = await import("@dexdraw/shared-protocol");
+    expect(() => OpsSinceResponseSchema.parse(ops.json())).not.toThrow();
+
+    await app.close();
+  }, 15_000);
 });
