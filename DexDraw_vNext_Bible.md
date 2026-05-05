@@ -511,3 +511,103 @@ State After Completion:
 
 Next Step / Handoff:
 - Continue implementation from the pushed `main` branch in `westkitty/DexDraw_vNext`.
+
+
+### Entry 7 - Inline editing, selection, delete, and undo/redo added
+
+Summary:
+- Implemented inline text and note editing via double-click (floating textarea overlay positioned using SVG-to-screen coordinate transform).
+- Added a Select tool with hit-testing for all object types (stroke, rectangle, ellipse, text, note).
+- Added durable `object.delete` triggered by the Delete/Backspace key when an object is selected.
+- Added a client-side undo/redo stack covering `object.create`, `object.update`, and `object.delete` operations. Undo/Redo buttons show accurate disabled state.
+- Keyboard shortcuts: Ctrl+Z undo, Ctrl+Y / Ctrl+Shift+Z redo.
+- Selection ring rendered in SVG around the selected object.
+- While inline editor is open, the SVG text is hidden so the overlay appears to replace it cleanly.
+
+Reason / Intent:
+- "Inline editing for text/note objects" was the top remaining priority per Entry 5 Known Gaps. This tranche also closes "durable update/delete" and "undo/redo".
+
+Files Changed:
+- New files:
+  - `apps/client-web/src/lib/hitTest.ts`
+  - `apps/client-web/src/components/InlineEditor.tsx`
+  - `apps/client-web/src/__tests__/hitTest.test.ts`
+  - `tests/e2e/inline-edit.spec.ts`
+  - `tests/e2e/selection-undo.spec.ts`
+- Modified files:
+  - `apps/client-web/src/components/BoardCanvas.tsx`
+  - `apps/client-web/src/components/BoardPage.tsx`
+  - `apps/client-web/src/components/Toolbar.tsx`
+  - `apps/client-web/src/__tests__/boardState.test.ts`
+
+Commands Run:
+```text
+pnpm --filter @dexdraw/client-web test
+pnpm --filter @dexdraw/client-web typecheck
+pnpm exec biome check --write .
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm test:e2e
+```
+
+Command Intent:
+- TDD: wrote failing unit tests and e2e tests before feature code, then implemented to make them pass.
+- Biome auto-fix applied after initial implementation, then manual fixes for non-null assertions and exhaustive-deps.
+- Workspace-level gates verified after all fixes.
+
+Outputs Generated:
+- 17 unit tests passing (up from 6).
+- 10 e2e tests passing (up from 3).
+- Production client bundle at `apps/client-web/dist/`.
+
+Decisions:
+- InlineEditor uses a `position: absolute` HTML `<textarea>` overlaid on the `.board-stage` (already `position: relative`). SVG coordinates are transformed to screen space using `getBoundingClientRect()` and the 1600×900 viewBox scale.
+- Text objects commit on Enter (single-line); note objects commit on Ctrl+Enter (multi-line) or blur.
+- Escape cancels without sending an op.
+- The SVG text element renders `null` for its text content while `editingObjectId` matches, so the floating textarea appears to replace the SVG element cleanly.
+- Hit testing lives in a dedicated `hitTest.ts` module with accurate geometry for each object type (AABB for rect/note, ellipse formula, segment-distance ≤ 10 SVG units for strokes, approximate bounding box for text).
+- `sendObjectDelete`, `handleUndo`, `handleRedo` are plain (unmemoized) functions; the keyboard `useEffect` uses a `// biome-ignore` for `useExhaustiveDependencies` because the key state they depend on (selectedObjectId, role) is already in the deps array, preventing stale closure bugs while avoiding infinite re-registration.
+- Undo/redo stack entries carry enough data for full inverse ops: `{ kind: "create", object }`, `{ kind: "update", id, prev, next }`, `{ kind: "delete", object }`.
+- Each `sendObjectCreate/Update/Delete` resets the redo stack, matching standard undo semantics.
+
+Bugs / Blockers:
+- Non-null assertions (`start!`, `end!`) on the shape drawing destructure flagged by Biome. Fixed by using indexed access with an early-return guard.
+- `useCallback` on `sendObjectUpdate` and `sendObjectDelete` triggered cascading `useExhaustiveDependencies` errors because their transitive deps (`sendRaw`, `pushUndo`) were themselves non-memoized. Fixed by converting to plain functions.
+- Import sort order in `hitTest.test.ts` flagged by Biome (type imports should come first). Fixed by `biome check --write`.
+- Vite WebSocket proxy `EPIPE` warnings during test teardown (same as Entry 5 — non-fatal, tests still passed).
+
+Correction:
+- None from prior entries; this is forward-only new feature work.
+
+State After Completion:
+- `pnpm lint` passes (0 errors).
+- `pnpm typecheck` passes (all 4 packages).
+- `pnpm test` passes (17 unit tests, up from 6).
+- `pnpm build` passes.
+- `pnpm test:e2e` passes (10 browser tests, up from 3):
+  - two-client persisted stroke sync (existing)
+  - rectangle and text tools create durable objects (existing)
+  - presence and PNG export smoke (existing)
+  - inline text editing commits and persists (new)
+  - inline note editing commits and persists (new)
+  - Escape cancels inline editing (new)
+  - Select tool + Delete key removes object (new)
+  - Ctrl+Z undoes delete / Ctrl+Y redoes it (new)
+  - Ctrl+Z undoes object.create (new)
+  - Undo/Redo buttons show correct disabled state (new)
+
+Known Gaps:
+- Drag-to-move selected objects (defer).
+- Object resize handles (defer).
+- Checkpoints and restore (next priority per handoff).
+- Markdown/PDF export (next priority per handoff).
+- Reconnect/replay refinements (next priority per handoff).
+
+Next Step / Handoff:
+- Continue with remaining milestones:
+  1. checkpoints and restore (`checkpoint.create` / `checkpoint.restore` ops)
+  2. Markdown export (board objects → .md)
+  3. PDF export (browser print API or canvas-to-PDF)
+  4. Reconnect/replay improvements (client tracks `serverSeq` and requests missed ops on reconnect)

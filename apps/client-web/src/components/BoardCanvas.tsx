@@ -15,13 +15,97 @@ type BoardCanvasProps = {
   objects: BoardObject[];
   currentStroke: Point[];
   remotePresence: PresenceState[];
+  selectedObjectId?: string | null;
+  editingObjectId?: string | null;
   onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerUp: () => void;
+  onObjectPointerDown?: (
+    id: string,
+    event: ReactPointerEvent<SVGElement>,
+  ) => void;
+  onObjectDoubleClick?: (id: string) => void;
 };
 
 function pointsToPolyline(points: Point[]) {
   return points.map((point) => `${point.x},${point.y}`).join(" ");
+}
+
+const PADDING = 6;
+
+function SelectionRing({ object }: { object: BoardObject }) {
+  const style = {
+    stroke: "#f97316",
+    fill: "none",
+    strokeWidth: 2,
+    strokeDasharray: "6 3",
+    pointerEvents: "none" as const,
+  };
+
+  if (object.type === "stroke") {
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const p of object.points) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    return (
+      <rect
+        x={minX - PADDING}
+        y={minY - PADDING}
+        width={maxX - minX + PADDING * 2}
+        height={maxY - minY + PADDING * 2}
+        rx={4}
+        {...style}
+      />
+    );
+  }
+
+  if (object.type === "rectangle" || object.type === "note") {
+    return (
+      <rect
+        x={object.x - PADDING}
+        y={object.y - PADDING}
+        width={object.width + PADDING * 2}
+        height={object.height + PADDING * 2}
+        rx={4}
+        {...style}
+      />
+    );
+  }
+
+  if (object.type === "ellipse") {
+    return (
+      <ellipse
+        cx={object.cx}
+        cy={object.cy}
+        rx={object.rx + PADDING}
+        ry={object.ry + PADDING}
+        {...style}
+      />
+    );
+  }
+
+  if (object.type === "text") {
+    const fontSize = object.style.fontSize ?? 18;
+    const width = object.text.length * fontSize * 0.6;
+    return (
+      <rect
+        x={object.x - PADDING}
+        y={object.y - fontSize - PADDING}
+        width={width + PADDING * 2}
+        height={fontSize + PADDING * 2}
+        rx={4}
+        {...style}
+      />
+    );
+  }
+
+  return null;
 }
 
 export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
@@ -30,12 +114,36 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
       objects,
       currentStroke,
       remotePresence,
+      selectedObjectId,
+      editingObjectId,
       onPointerDown,
       onPointerMove,
       onPointerUp,
+      onObjectPointerDown,
+      onObjectDoubleClick,
     },
     ref,
   ) {
+    function makeObjectHandlers(id: string) {
+      return {
+        onPointerDown: (e: ReactPointerEvent<SVGElement>) => {
+          if (onObjectPointerDown) {
+            e.stopPropagation();
+            onObjectPointerDown(id, e);
+          }
+        },
+        onDoubleClick: () => {
+          if (onObjectDoubleClick) {
+            onObjectDoubleClick(id);
+          }
+        },
+      };
+    }
+
+    const selectedObject = selectedObjectId
+      ? objects.find((o) => o.id === selectedObjectId)
+      : null;
+
     return (
       <svg
         ref={ref}
@@ -52,6 +160,8 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
       >
         <title>Collaborative drawing canvas</title>
         {objects.map((object) => {
+          const handlers = makeObjectHandlers(object.id);
+
           if (object.type === "stroke") {
             return (
               <path
@@ -63,6 +173,8 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
                 strokeWidth={object.style.width}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                style={{ cursor: "pointer" }}
+                {...handlers}
               />
             );
           }
@@ -79,6 +191,8 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
                 fill={object.style.fillColor ?? "transparent"}
                 stroke={object.style.strokeColor ?? "#111827"}
                 strokeWidth={2}
+                style={{ cursor: "pointer" }}
+                {...handlers}
               />
             );
           }
@@ -95,6 +209,8 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
                 fill={object.style.fillColor ?? "transparent"}
                 stroke={object.style.strokeColor ?? "#111827"}
                 strokeWidth={2}
+                style={{ cursor: "pointer" }}
+                {...handlers}
               />
             );
           }
@@ -108,14 +224,21 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
                 y={object.y}
                 fill={object.style.color ?? "#111827"}
                 fontSize={object.style.fontSize ?? 18}
+                style={{ cursor: "pointer" }}
+                {...handlers}
               >
-                {object.text}
+                {editingObjectId === object.id ? null : object.text}
               </text>
             );
           }
 
           return (
-            <g key={object.id} data-testid="note-object">
+            <g
+              key={object.id}
+              data-testid="note-object"
+              style={{ cursor: "pointer" }}
+              {...handlers}
+            >
               <rect
                 x={object.x}
                 y={object.y}
@@ -132,7 +255,7 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
                 fill="#111827"
                 fontSize={18}
               >
-                {object.text}
+                {editingObjectId === object.id ? null : object.text}
               </text>
             </g>
           );
@@ -149,6 +272,8 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
             opacity={0.8}
           />
         ) : null}
+
+        {selectedObject ? <SelectionRing object={selectedObject} /> : null}
 
         {remotePresence.map((presence) =>
           presence.type === "presence.laser" ? (

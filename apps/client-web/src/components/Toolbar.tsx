@@ -1,15 +1,27 @@
-export type Tool = "pen" | "rectangle" | "ellipse" | "text" | "note" | "laser";
+export type Tool =
+  | "select"
+  | "pen"
+  | "rectangle"
+  | "ellipse"
+  | "text"
+  | "note"
+  | "laser";
 
 type ToolbarProps = {
   activeTool: Tool;
   canDraw: boolean;
   roleLabel: string;
+  undoCount: number;
+  redoCount: number;
   onToolChange: (tool: Tool) => void;
   onExportPng: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
   exportDisabled: boolean;
 };
 
 const tools: Array<{ id: Tool; label: string }> = [
+  { id: "select", label: "Select" },
   { id: "pen", label: "Pen" },
   { id: "rectangle", label: "Rectangle" },
   { id: "ellipse", label: "Ellipse" },
@@ -22,8 +34,12 @@ export function Toolbar({
   activeTool,
   canDraw,
   roleLabel,
+  undoCount,
+  redoCount,
   onToolChange,
   onExportPng,
+  onUndo,
+  onRedo,
   exportDisabled,
 }: ToolbarProps) {
   return (
@@ -35,12 +51,32 @@ export function Toolbar({
           type="button"
           data-active={activeTool === tool.id}
           aria-pressed={activeTool === tool.id}
-          disabled={!canDraw}
+          disabled={tool.id !== "select" && !canDraw}
           onClick={() => onToolChange(tool.id)}
         >
           {tool.label}
         </button>
       ))}
+
+      <button
+        className="secondary-button"
+        type="button"
+        onClick={onUndo}
+        disabled={undoCount === 0}
+        aria-label="Undo"
+      >
+        Undo
+      </button>
+      <button
+        className="secondary-button"
+        type="button"
+        onClick={onRedo}
+        disabled={redoCount === 0}
+        aria-label="Redo"
+      >
+        Redo
+      </button>
+
       <span className="status-pill">Role: {roleLabel}</span>
       <button
         className="secondary-button"

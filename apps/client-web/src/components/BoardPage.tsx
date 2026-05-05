@@ -9,6 +9,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useParams } from "react-router-dom";
 import { applyCanonicalOperation } from "../lib/boardState";
 import { exportSvgToPng } from "../lib/export";
+import { hitTestObjects } from "../lib/hitTest";
 import { type RemotePresence, mergePresence } from "../lib/presence";
 import {
   getBoardShareCode,
@@ -17,9 +18,20 @@ import {
   getDisplayName,
 } from "../lib/session";
 import { BoardCanvas } from "./BoardCanvas";
+import { InlineEditor } from "./InlineEditor";
 import { type Tool, Toolbar } from "./Toolbar";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
+
+type UndoEntry =
+  | { kind: "create"; object: BoardObject }
+  | {
+      kind: "update";
+      id: string;
+      prev: Partial<BoardObject>;
+      next: Partial<BoardObject>;
+    }
+  | { kind: "delete"; object: BoardObject };
 
 export function BoardPage() {
   const { boardId = "" } = useParams();
@@ -34,11 +46,23 @@ export function BoardPage() {
   const [role, setRole] = useState<Role>("view");
   const [error, setError] = useState<string | null>(null);
   const [remotePresence, setRemotePresence] = useState<RemotePresence[]>([]);
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
+  const [undoCount, setUndoCount] = useState(0);
+  const [redoCount, setRedoCount] = useState(0);
+
   const socketRef = useRef<WebSocket | null>(null);
   const clientSeqRef = useRef(0);
   const strokeRef = useRef<Point[]>([]);
   const shapeStartRef = useRef<Point | null>(null);
   const canvasRef = useRef<SVGSVGElement | null>(null);
+  const objectsRef = useRef<BoardObject[]>([]);
+  const undoStackRef = useRef<UndoEntry[]>([]);
+  const redoStackRef = useRef<UndoEntry[]>([]);
+
+  useEffect(() => {
+    objectsRef.current = objects;
+  }, [objects]);
 
   useEffect(() => {
     if (!boardId || !token) {
@@ -101,11 +125,13 @@ export function BoardPage() {
     };
   }, [boardId, token]);
 
-  function pointerToPoint(event: ReactPointerEvent<SVGSVGElement>) {
+  function pointerToSvgPoint(event: ReactPointerEvent<SVGSVGElement>): Point {
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 1600;
-    const y = ((event.clientY - rect.top) / rect.height) * 900;
-    return { x, y, pressure: event.pressure || 0.5 };
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * 1600,
+      y: ((event.clientY - rect.top) / rect.height) * 900,
+      pressure: event.pressure || 0.5,
+    };
   }
 
   function nextObjectBase(now: string) {
@@ -114,7 +140,7 @@ export function BoardPage() {
       createdBy: displayName,
       createdAt: now,
       updatedAt: now,
-      zIndex: objects.length,
+      zIndex: objectsRef.current.length,
     };
   }
 
@@ -125,7 +151,6 @@ export function BoardPage() {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
-
     socketRef.current.send(
       JSON.stringify({
         type: presenceType,
@@ -139,17 +164,19 @@ export function BoardPage() {
     );
   }
 
-  function sendObjectCreate(object: BoardObject) {
-    if (!socketRef.current) {
-      return;
-    }
+  function pushUndo(entry: UndoEntry) {
+    undoStackRef.current.push(entry);
+    redoStackRef.current = [];
+    setUndoCount(undoStackRef.current.length);
+    setRedoCount(0);
+  }
 
-    setObjects((current) =>
-      [...current.filter((item) => item.id !== object.id), object].sort(
-        (left, right) => left.zIndex - right.zIndex,
-      ),
-    );
-
+  function sendRaw(
+    opType: string,
+    payload: unknown,
+    skipUndoRecord?: boolean,
+  ): void {
+    if (!socketRef.current) return;
     clientSeqRef.current += 1;
     socketRef.current.send(
       JSON.stringify({
@@ -158,19 +185,211 @@ export function BoardPage() {
         clientId,
         clientSeq: clientSeqRef.current,
         opId: crypto.randomUUID(),
-        opType: "object.create",
-        payload: object,
+        opType,
+        payload,
         sentAt: new Date().toISOString(),
       }),
     );
+    void skipUndoRecord;
+  }
+
+  function sendObjectCreate(object: BoardObject) {
+    setObjects((current) =>
+      [...current.filter((item) => item.id !== object.id), object].sort(
+        (left, right) => left.zIndex - right.zIndex,
+      ),
+    );
+    sendRaw("object.create", object);
+    pushUndo({ kind: "create", object });
+  }
+
+  function sendObjectUpdate(id: string, patch: Partial<BoardObject>) {
+    const previous = objectsRef.current.find((o) => o.id === id);
+    if (!previous) return;
+
+    const prevFields: Partial<BoardObject> = {};
+    for (const key of Object.keys(patch) as Array<keyof BoardObject>) {
+      (prevFields as Record<string, unknown>)[key] = previous[key];
+    }
+
+    setObjects((current) =>
+      applyCanonicalOperation(current, {
+        type: "server.op",
+        boardId,
+        serverSeq: -1,
+        clientId,
+        clientSeq: -1,
+        opId: crypto.randomUUID(),
+        opType: "object.update",
+        payload: { id, patch },
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    sendRaw("object.update", { id, patch });
+    pushUndo({ kind: "update", id, prev: prevFields, next: patch });
+  }
+
+  function sendObjectDelete(id: string) {
+    const object = objectsRef.current.find((o) => o.id === id);
+    if (!object) return;
+
+    setObjects((current) => current.filter((o) => o.id !== id));
+    if (selectedObjectId === id) setSelectedObjectId(null);
+    sendRaw("object.delete", { id });
+    pushUndo({ kind: "delete", object });
+  }
+
+  function handleUndo() {
+    const entry = undoStackRef.current.pop();
+    if (!entry) return;
+
+    if (entry.kind === "create") {
+      setObjects((current) => current.filter((o) => o.id !== entry.object.id));
+      sendRaw("object.delete", { id: entry.object.id }, true);
+      redoStackRef.current.push(entry);
+    } else if (entry.kind === "update") {
+      setObjects((current) =>
+        applyCanonicalOperation(current, {
+          type: "server.op",
+          boardId,
+          serverSeq: -1,
+          clientId,
+          clientSeq: -1,
+          opId: crypto.randomUUID(),
+          opType: "object.update",
+          payload: { id: entry.id, patch: entry.prev },
+          createdAt: new Date().toISOString(),
+        }),
+      );
+      sendRaw("object.update", { id: entry.id, patch: entry.prev }, true);
+      redoStackRef.current.push(entry);
+    } else if (entry.kind === "delete") {
+      setObjects((current) =>
+        [...current, entry.object].sort((a, b) => a.zIndex - b.zIndex),
+      );
+      sendRaw("object.create", entry.object, true);
+      redoStackRef.current.push(entry);
+    }
+
+    setUndoCount(undoStackRef.current.length);
+    setRedoCount(redoStackRef.current.length);
+  }
+
+  function handleRedo() {
+    const entry = redoStackRef.current.pop();
+    if (!entry) return;
+
+    if (entry.kind === "create") {
+      setObjects((current) =>
+        [...current.filter((o) => o.id !== entry.object.id), entry.object].sort(
+          (a, b) => a.zIndex - b.zIndex,
+        ),
+      );
+      sendRaw("object.create", entry.object, true);
+      undoStackRef.current.push(entry);
+    } else if (entry.kind === "update") {
+      setObjects((current) =>
+        applyCanonicalOperation(current, {
+          type: "server.op",
+          boardId,
+          serverSeq: -1,
+          clientId,
+          clientSeq: -1,
+          opId: crypto.randomUUID(),
+          opType: "object.update",
+          payload: { id: entry.id, patch: entry.next },
+          createdAt: new Date().toISOString(),
+        }),
+      );
+      sendRaw("object.update", { id: entry.id, patch: entry.next }, true);
+      undoStackRef.current.push(entry);
+    } else if (entry.kind === "delete") {
+      setObjects((current) => current.filter((o) => o.id !== entry.object.id));
+      sendRaw("object.delete", { id: entry.object.id }, true);
+      undoStackRef.current.push(entry);
+    }
+
+    setUndoCount(undoStackRef.current.length);
+    setRedoCount(redoStackRef.current.length);
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sendObjectDelete/handleUndo/handleRedo are recreated but always close over up-to-date state; the key state they depend on (selectedObjectId, role) is already listed
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (editingObjectId) return;
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        selectedObjectId &&
+        role !== "view"
+      ) {
+        e.preventDefault();
+        sendObjectDelete(selectedObjectId);
+        return;
+      }
+      if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
+      if (
+        (e.key === "y" && (e.ctrlKey || e.metaKey)) ||
+        (e.key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey)
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editingObjectId, selectedObjectId, role]);
+
+  function handleObjectPointerDown(
+    id: string,
+    event: ReactPointerEvent<SVGElement>,
+  ) {
+    if (tool === "select") {
+      setSelectedObjectId(id);
+    }
+    // For other tools, let the canvas-level handler decide (event already stopped)
+    void event;
+  }
+
+  function handleObjectDoubleClick(id: string) {
+    const object = objectsRef.current.find((o) => o.id === id);
+    if (!object) return;
+    if (object.type === "text" || object.type === "note") {
+      setEditingObjectId(id);
+      setSelectedObjectId(null);
+    }
+  }
+
+  function handleInlineCommit(id: string, newText: string) {
+    setEditingObjectId(null);
+    const object = objectsRef.current.find((o) => o.id === id);
+    if (!object) return;
+    if (
+      (object.type === "text" || object.type === "note") &&
+      newText !== object.text
+    ) {
+      sendObjectUpdate(id, { text: newText } as Partial<BoardObject>);
+    }
+  }
+
+  function handleInlineCancel() {
+    setEditingObjectId(null);
   }
 
   function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
-    if (role === "view") {
+    if (role === "view") return;
+    if (editingObjectId) return;
+
+    const point = pointerToSvgPoint(event);
+
+    if (tool === "select") {
+      const hit = hitTestObjects(objectsRef.current, point.x, point.y);
+      setSelectedObjectId(hit?.id ?? null);
       return;
     }
-
-    const point = pointerToPoint(event);
 
     if (tool === "text" || tool === "note") {
       const now = new Date().toISOString();
@@ -196,7 +415,6 @@ export function BoardPage() {
               height: 110,
               text: "Note",
             };
-
       sendObjectCreate(object);
       return;
     }
@@ -214,13 +432,17 @@ export function BoardPage() {
   }
 
   function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>) {
-    const point = pointerToPoint(event);
+    const point = pointerToSvgPoint(event);
     sendPresence(
       point,
       tool === "laser" ? "presence.laser" : "presence.cursor",
     );
 
-    if (strokeRef.current.length === 0 || role === "view") {
+    if (
+      strokeRef.current.length === 0 ||
+      role === "view" ||
+      tool === "select"
+    ) {
       return;
     }
 
@@ -246,7 +468,14 @@ export function BoardPage() {
     }
 
     if (tool === "rectangle" || tool === "ellipse") {
-      const [start, end] = strokeRef.current;
+      const start = strokeRef.current[0];
+      const end = strokeRef.current[1];
+      if (!start || !end) {
+        shapeStartRef.current = null;
+        strokeRef.current = [];
+        setCurrentStroke([]);
+        return;
+      }
       const now = new Date().toISOString();
       if (tool === "rectangle") {
         const object: BoardObject = {
@@ -261,14 +490,12 @@ export function BoardPage() {
             fillColor: "rgba(249,115,22,0.12)",
           },
         };
-
         if (object.width === 0 || object.height === 0) {
           shapeStartRef.current = null;
           strokeRef.current = [];
           setCurrentStroke([]);
           return;
         }
-
         sendObjectCreate(object);
       } else {
         const object: BoardObject = {
@@ -283,17 +510,14 @@ export function BoardPage() {
             fillColor: "rgba(15,118,110,0.14)",
           },
         };
-
         if (object.rx === 0 || object.ry === 0) {
           shapeStartRef.current = null;
           strokeRef.current = [];
           setCurrentStroke([]);
           return;
         }
-
         sendObjectCreate(object);
       }
-
       shapeStartRef.current = null;
       strokeRef.current = [];
       setCurrentStroke([]);
@@ -333,12 +557,18 @@ export function BoardPage() {
   }
 
   async function handleExportPng() {
-    if (!canvasRef.current || objects.length === 0) {
-      return;
-    }
-
+    if (!canvasRef.current || objects.length === 0) return;
     await exportSvgToPng(canvasRef.current, `dexdraw-${boardId}.png`);
   }
+
+  const editingObject =
+    editingObjectId !== null
+      ? objects.find(
+          (o) =>
+            o.id === editingObjectId &&
+            (o.type === "text" || o.type === "note"),
+        )
+      : null;
 
   return (
     <main className="board-shell">
@@ -358,8 +588,12 @@ export function BoardPage() {
           activeTool={tool}
           canDraw={role !== "view"}
           roleLabel={role}
+          undoCount={undoCount}
+          redoCount={redoCount}
           onToolChange={setTool}
           onExportPng={handleExportPng}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
           exportDisabled={objects.length === 0}
         />
 
@@ -378,10 +612,27 @@ export function BoardPage() {
           objects={objects}
           currentStroke={currentStroke}
           remotePresence={remotePresence}
+          selectedObjectId={selectedObjectId}
+          editingObjectId={editingObjectId}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onObjectPointerDown={handleObjectPointerDown}
+          onObjectDoubleClick={handleObjectDoubleClick}
         />
+        {editingObject && canvasRef.current ? (
+          <InlineEditor
+            object={
+              editingObject as Extract<
+                typeof editingObject,
+                { type: "text" | "note" }
+              >
+            }
+            canvasEl={canvasRef.current}
+            onCommit={handleInlineCommit}
+            onCancel={handleInlineCancel}
+          />
+        ) : null}
       </section>
     </main>
   );
