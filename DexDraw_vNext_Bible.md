@@ -906,3 +906,55 @@ pnpm test:e2e tests/e2e/drag-move.spec.ts    # 2 passed
 - Removed transient `gemini_dexdraw_audit.log`.
 - Added ignore rules for `.dexdraw-data/`, `apps/server-api/apps/`, and `gemini_dexdraw_audit.log`.
 - Remaining caution before commit: inspect server/store/protocol diffs because Gemini touched broader backend files beyond the drag/multi-select UI work.
+
+## Entry 13 — Quota-Saver Correctness Pass (2026-05-05)
+
+### Session Goal
+Fix the three highest-impact correctness bugs found in an audit pass, and add the missing project scaffolding (README, .env.example, verify script) to make the repo easy to test and share.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/server-api/src/db/store.ts` | Fixed boardId-scoped idempotency in `appendOperation` (2 query sites). Added `SYSTEM_CLIENT_ID` UUID constant to replace `"system"` in template seed ops. Replaced `Math.random` share code with `crypto.randomUUID`. Applied Biome formatting. |
+| `apps/server-api/src/__tests__/store.test.ts` | Added regression test: same opId on two boards returns each board's own canonical op. Extended concurrent-append test timeout to 60 s (PGlite serialises writes; default 5 s was too short on this machine). |
+| `apps/server-api/src/__tests__/server.test.ts` | Added regression test: `/api/boards/:id/ops?since=0` on a templated board parses cleanly against `OpsSinceResponseSchema`. |
+| `README.md` | **new** — quickstart, architecture, scripts, environment variables, manual smoke test, roadmap. |
+| `.env.example` | **new** — PORT, HOST, TOKEN_SECRET, PUBLIC_CLIENT_ORIGIN. |
+| `scripts/verify.sh` | **new** — one-command local CI: install → typecheck → test → build → lint. |
+
+### Bugs Fixed
+
+1. **boardId-scoped idempotency** — `appendOperation` checked `WHERE op_id = ?` without a `board_id` clause. The same `opId` used on two boards caused the second board's op to return the first board's canonical record (wrong `boardId`, wrong `serverSeq`). Fixed both the early-exit check and the conflict-recovery re-query.
+
+2. **Template `clientId: "system"`** — Seed ops from non-blank templates stored `clientId: "system"`, which fails `ServerOpEnvelopeSchema`'s `z.string().uuid()` validation. Replaced with `SYSTEM_CLIENT_ID = "00000000-0000-4000-8000-000000000000"` scoped inside `createStore`.
+
+3. **`Math.random` share codes** — Share codes are used as board access tokens; replaced with `crypto.randomUUID().replace(/-/g,"").slice(0,6)`.
+
+### Decisions Made
+
+- Kept CORS logic as-is (`origin: options.publicClientOrigin ?? true`): dev-open is intentional, and `PUBLIC_CLIENT_ORIGIN` is now documented in `.env.example`.
+- Did NOT add Playwright to `verify.sh` — E2E requires browser install which is expensive. README documents it as a separate optional step.
+- `SYSTEM_CLIENT_ID` placed inside `createStore` closure (not module-level) to keep it out of the public protocol surface.
+- Extended concurrent-append test timeout to 60 s rather than removing the test — the test is valid, PGlite is just slow at concurrent writes.
+
+### Commands Run (Gates)
+
+```
+pnpm typecheck   # 0 errors
+pnpm test        # 10/10 passed (2 files)
+pnpm build       # pass
+pnpm lint        # 0 errors
+```
+
+### State After Completion
+
+- All unit and server tests pass (10/10).
+- `pnpm typecheck`, `pnpm build`, `pnpm lint` clean.
+- README, .env.example, and scripts/verify.sh present at repo root.
+
+### Next Steps
+
+1. Resize handles on selected objects.
+2. Marquee (drag-to-select) on the canvas.
+3. Richer presence UI (avatar bubbles).
