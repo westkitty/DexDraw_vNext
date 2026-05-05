@@ -87,3 +87,84 @@ describe("store appendOperation", () => {
     await store.close();
   });
 });
+
+describe("store appendOperation — boardId scoping", () => {
+  let dataDir: string;
+
+  beforeEach(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), "dexdraw-scope-"));
+  });
+
+  afterEach(async () => {
+    await rm(dataDir, { recursive: true, force: true });
+  });
+
+  it("same opId on two boards returns each board's own canonical op", async () => {
+    const store = await createStore(dataDir);
+    const blankTemplate = {
+      id: "blank",
+      name: "Blank",
+      description: "Empty board",
+      objects: [],
+    };
+
+    const board1 = await store.createBoard({
+      name: "Board One",
+      templateId: "blank",
+      displayName: "Owner",
+      template: blankTemplate,
+    });
+    const board2 = await store.createBoard({
+      name: "Board Two",
+      templateId: "blank",
+      displayName: "Owner",
+      template: blankTemplate,
+    });
+
+    const sharedOpId = "aaaabbbb-cccc-4ddd-8eee-ffffffffffff";
+    const baseObj = {
+      createdBy: "Owner",
+      createdAt: "2026-05-05T00:00:00.000Z",
+      updatedAt: "2026-05-05T00:00:00.000Z",
+      style: { color: "#000000", width: 2 },
+      type: "stroke" as const,
+      points: [
+        { x: 0, y: 0, pressure: 0.5 },
+        { x: 10, y: 10, pressure: 0.5 },
+      ],
+      zIndex: 0,
+    };
+
+    const op1: ClientOpEnvelope = {
+      type: "client.op",
+      boardId: board1.boardId,
+      clientId: "11111111-1111-4111-8111-111111111111",
+      clientSeq: 1,
+      opId: sharedOpId,
+      opType: "object.create",
+      payload: { ...baseObj, id: "00000001-0000-4000-8000-000000000001" },
+      sentAt: "2026-05-05T00:00:00.000Z",
+    };
+    const op2: ClientOpEnvelope = {
+      type: "client.op",
+      boardId: board2.boardId,
+      clientId: "22222222-2222-4222-8222-222222222222",
+      clientSeq: 1,
+      opId: sharedOpId,
+      opType: "object.create",
+      payload: { ...baseObj, id: "00000002-0000-4000-8000-000000000002" },
+      sentAt: "2026-05-05T00:00:00.000Z",
+    };
+
+    const result1 = await store.appendOperation(op1);
+    const result2 = await store.appendOperation(op2);
+
+    expect(result1.boardId).toBe(board1.boardId);
+    expect(result2.boardId).toBe(board2.boardId);
+    expect((result2.payload as { id: string }).id).toBe(
+      "00000002-0000-4000-8000-000000000002",
+    );
+
+    await store.close();
+  });
+});

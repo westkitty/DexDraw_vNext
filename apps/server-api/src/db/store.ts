@@ -156,7 +156,7 @@ export async function createStore(
       const existing = await db
         .select()
         .from(operations)
-        .where(eq(operations.opId, op.opId))
+        .where(and(eq(operations.boardId, op.boardId), eq(operations.opId, op.opId)))
         .limit(1);
 
       if (existing[0]) {
@@ -207,7 +207,7 @@ export async function createStore(
             const duplicate = await db
               .select()
               .from(operations)
-              .where(eq(operations.opId, op.opId))
+              .where(and(eq(operations.boardId, op.boardId), eq(operations.opId, op.opId)))
               .limit(1);
             if (duplicate[0]) {
               return toServerEnvelope(duplicate[0]);
