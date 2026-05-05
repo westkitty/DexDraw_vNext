@@ -545,6 +545,69 @@ describe("server api", () => {
     await app.close();
   }, 25_000);
 
+  it("rejects object.update patches that attempt to overwrite id or type", async () => {
+    const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
+    await app.listen({ port: 0, host: "127.0.0.1" });
+    const port = (app.server.address() as import("node:net").AddressInfo).port;
+
+    const created = await fetch(`http://127.0.0.1:${port}/api/boards`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Patch Test",
+        templateId: "blank",
+        displayName: "Owner",
+      }),
+    }).then((r) => r.json());
+
+    const ws = new WebSocket(
+      `ws://127.0.0.1:${port}/ws/boards/${created.boardId}?token=${created.ownerToken}`,
+    );
+    await new Promise<void>((resolve, reject) => {
+      ws.addEventListener("open", () => resolve(), { once: true });
+      ws.addEventListener("error", reject, { once: true });
+    });
+    await new Promise<void>((resolve) => {
+      ws.addEventListener("message", (ev) => {
+        if (JSON.parse(String(ev.data)).type === "server.welcome") resolve();
+      });
+    });
+
+    const errorMsg = await new Promise<{ type: string; code: string }>(
+      (resolve, reject) => {
+        ws.addEventListener("message", (ev) => {
+          const m = JSON.parse(String(ev.data));
+          if (m.type === "server.error") resolve(m);
+        });
+        ws.addEventListener("error", reject, { once: true });
+
+        ws.send(
+          JSON.stringify({
+            type: "client.op",
+            boardId: created.boardId,
+            clientId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            clientSeq: 1,
+            opId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            opType: "object.update",
+            payload: {
+              id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+              patch: {
+                id: "00000000-0000-0000-0000-000000000000",
+                x: 100,
+              },
+            },
+            sentAt: "2026-05-05T00:00:00.000Z",
+          }),
+        );
+      },
+    );
+
+    expect(errorMsg.code).toBe("invalid_payload");
+
+    ws.close();
+    await app.close();
+  }, 20_000);
+
   it("restricts CORS to the configured public client origin", async () => {
     const { app } = await buildApp({
       dataDir,

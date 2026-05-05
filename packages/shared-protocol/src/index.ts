@@ -103,10 +103,24 @@ export type BoardObject = z.infer<typeof BoardObjectSchema>;
 
 export const CreateObjectPayloadSchema = BoardObjectSchema;
 
-export const UpdateObjectPayloadSchema = z.object({
-  id: z.string().uuid(),
-  patch: z.record(z.string(), z.unknown()),
-});
+const FORBIDDEN_PATCH_KEYS = ["id", "type", "createdAt", "createdBy"] as const;
+
+export const UpdateObjectPayloadSchema = z
+  .object({
+    id: z.string().uuid(),
+    patch: z.record(z.string(), z.unknown()),
+  })
+  .superRefine((value, ctx) => {
+    for (const key of FORBIDDEN_PATCH_KEYS) {
+      if (key in value.patch) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["patch", key],
+          message: `Patch may not overwrite immutable field "${key}".`,
+        });
+      }
+    }
+  });
 
 export const DeleteObjectPayloadSchema = z.object({
   id: z.string().uuid(),
