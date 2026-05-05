@@ -611,3 +611,72 @@ Next Step / Handoff:
   2. Markdown export (board objects → .md)
   3. PDF export (browser print API or canvas-to-PDF)
   4. Reconnect/replay improvements (client tracks `serverSeq` and requests missed ops on reconnect)
+
+---
+
+## Entry 8 — Tranche 8: Checkpoints, Markdown/PDF Export (2026-05-04)
+
+### Session Goal
+Implement checkpoints (save/restore), Markdown export, and PDF export.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `packages/shared-protocol/src/index.ts` | Added `ServerSnapshotResetSchema`, `CheckpointSummarySchema`, and exported types |
+| `apps/server-api/src/app.ts` | Refactored `snapshotFromOps` to handle `checkpoint.create` (no-op) and `checkpoint.restore` (recursive `replaySlice` rewind); added `GET /api/boards/:boardId/checkpoints` REST endpoint; broadcast `server.snapshot_reset` to all room peers after persisting `checkpoint.restore` |
+| `apps/client-web/src/lib/export.ts` | Added `boardToMarkdown`, `exportMarkdown` (download trigger), `exportToPdf` (window.open new page) |
+| `apps/client-web/src/components/Toolbar.tsx` | New props: `checkpoints`, `selectedCheckpointId`, `onSaveCheckpoint`, `onSelectCheckpoint`, `onRestoreCheckpoint`, `onExportMarkdown`, `onExportPdf`; Save Checkpoint button, checkpoint `<select data-testid="checkpoint-select">`, Restore button, Export Markdown button, Export PDF button |
+| `apps/client-web/src/components/BoardPage.tsx` | Added `checkpoints`/`selectedCheckpointId` state; fetch checkpoints from REST after `server.welcome`; handle `server.snapshot_reset` (set objects, clear undo/redo stacks); handle `server.op` with `checkpoint.create` (append to list vs. calling `applyCanonicalOperation`); `sendCheckpointCreate`/`sendCheckpointRestore`, `handleSaveCheckpoint` (window.prompt), `handleRestoreCheckpoint`, `handleExportMarkdown`, `handleExportPdf` |
+| `apps/client-web/src/__tests__/export.test.ts` | **new** — 7 unit tests for `boardToMarkdown` |
+| `apps/server-api/src/__tests__/server.test.ts` | Added "lists checkpoints via REST endpoint" and "snapshot_reset is broadcast on checkpoint.restore"; fixed all fake all-hex UUIDs to pass Zod v4 strict UUID validation (version + variant digits) |
+| `tests/e2e/checkpoint.spec.ts` | **new** — 4 e2e tests: restore removes post-checkpoint objects, checkpoint persists on reload, Markdown download, PDF new window |
+
+### Key Decisions
+
+- **`snapshotFromOps` rewind approach**: Implemented as a nested recursive `replaySlice(limit)` function that captures the pre-indexed `checkpointSlot` map (checkpoint ID → op index). When `checkpoint.restore` is encountered, clears the map and re-runs `replaySlice(cpIdx)`. Handles nested restores correctly.
+- **`server.snapshot_reset` broadcast**: Sent to all room peers AFTER the `server.op` broadcast, so clients receive both (the op is stored but the snapshot wins).
+- **Client `server.op` + `checkpoint.create`**: Instead of calling `applyCanonicalOperation` (which is a no-op for checkpoint ops anyway), explicitly appends to `checkpoints` state.
+- **Toolbar select placeholder**: Initially included a disabled placeholder option at index 0; removed it after e2e tests showed `selectOption({ index: 0 })` needed to hit the real checkpoint option directly.
+- **Zod v4 UUID strictness**: Zod v4 requires version digit 1–5 and variant digit 8–b. All `aaaaaaaa-...`, `bbbbbbbb-...`, etc. fake UUIDs in server tests were corrected (e.g., `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`).
+
+### Bugs Found & Fixed
+
+- **Fake UUIDs fail Zod v4**: Server tests written in Tranche 8 used all-identical-hex UUIDs (e.g., all `a`s) which pass Zod v3 but fail Zod v4's stricter regex requiring valid version/variant nibbles. Fixed by injecting proper version (4) and variant (8) digits into each fake UUID.
+- **Disabled select placeholder at index 0**: Playwright `selectOption({ index: 0 })` tried to select the disabled placeholder option. Removed placeholder; checkpoints render directly as the first options.
+
+### Commands Run (Gates)
+
+```bash
+pnpm --filter @dexdraw/client-web test   # 24 unit tests pass
+pnpm --filter @dexdraw/server-api test   # 6 server tests pass
+pnpm typecheck                           # 0 errors
+pnpm lint                                # 0 errors (biome auto-format applied)
+pnpm build                               # vite + tsc all pass
+pnpm test:e2e --workers=1               # 13/14 pass; 1 pre-existing flaky presence test
+```
+
+### State After Completion
+
+- `pnpm lint` passes (0 errors).
+- `pnpm typecheck` passes (all 4 packages).
+- `pnpm test` passes (30 unit/server tests).
+- `pnpm build` passes.
+- `pnpm test:e2e` 13/14 pass (1 flaky: "presence and PNG export work" — timing-sensitive two-client presence sync, passes when run in isolation).
+
+E2E tests now include: 3 existing + 3 inline-edit + 4 selection-undo + 4 checkpoint/export = 14 total.
+
+### Known Gaps
+
+- Drag-to-move selected objects (defer).
+- Object resize handles (defer).
+- Reconnect/replay improvements (client tracks `serverSeq`, requests missed ops on reconnect).
+- Flaky presence e2e test (pre-existing, not introduced in Tranche 8).
+
+### Next Step / Handoff
+
+Possible next tranches:
+1. **Reconnect/replay**: Client stores last `serverSeq`; on reconnect requests ops since that seq; server adds `GET /api/boards/:boardId/ops?since=N` endpoint.
+2. **Drag-to-move**: Select tool + pointer drag sends `object.update` with new `x`/`y`.
+3. **Multi-select**: Shift-click adds to selection; group delete/move.
+4. **Presence improvements**: Avatar bubbles, user list panel, cursor name labels.
