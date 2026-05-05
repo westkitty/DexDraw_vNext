@@ -138,8 +138,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
   const store = await createStore(options.dataDir);
   const rooms = new Map<string, Set<ConnectionContext>>();
 
+  const corsOrigin =
+    options.publicClientOrigin ?? process.env.PUBLIC_CLIENT_ORIGIN;
   await app.register(cors, {
-    origin: options.publicClientOrigin ?? true,
+    origin: corsOrigin ?? true,
   });
   await app.register(websocket);
 

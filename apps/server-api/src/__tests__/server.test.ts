@@ -545,6 +545,28 @@ describe("server api", () => {
     await app.close();
   }, 25_000);
 
+  it("restricts CORS to the configured public client origin", async () => {
+    const { app } = await buildApp({
+      dataDir,
+      tokenSecret: "test-secret-key",
+      publicClientOrigin: "http://app.example.com",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/health",
+      headers: { origin: "http://evil.example.com" },
+    });
+
+    // When a specific origin is configured, @fastify/cors reflects only that
+    // string — not the request's Origin. A browser seeing a mismatched ACAO
+    // header will block the response.
+    const acao = response.headers["access-control-allow-origin"];
+    expect(acao).toBe("http://app.example.com");
+
+    await app.close();
+  }, 15_000);
+
   it("returns valid ops for a board created from a non-blank template", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
 
