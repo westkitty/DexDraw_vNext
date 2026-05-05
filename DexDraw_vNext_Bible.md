@@ -958,3 +958,15 @@ pnpm lint        # 0 errors
 1. Resize handles on selected objects.
 2. Marquee (drag-to-select) on the canvas.
 3. Richer presence UI (avatar bubbles).
+
+### Commit Hashes (Entry 13 session)
+
+| Hash | Message |
+|------|---------|
+| `1b91387` | fix: scope appendOperation idempotency check to boardId+opId |
+| `138fef1` | fix: use valid UUID constant for system clientId in template seed ops |
+| `56dbb42` | fix: replace Math.random share code with crypto.randomUUID |
+| `caaf332` | docs: add root README with quickstart, architecture, and roadmap |
+| `a52f299` | chore: add .env.example and scripts/verify.sh |
+| `b80e53c` | fix: extend concurrent test timeout; apply biome formatting |
+| `eaf8b77` | docs: append Bible Entry 13 — quota-saver correctness pass |
