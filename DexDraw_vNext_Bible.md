@@ -970,3 +970,48 @@ pnpm lint        # 0 errors
 | `a52f299` | chore: add .env.example and scripts/verify.sh |
 | `b80e53c` | fix: extend concurrent test timeout; apply biome formatting |
 | `eaf8b77` | docs: append Bible Entry 13 — quota-saver correctness pass |
+
+## Entry 14 — Security Review Pass (2026-05-05)
+
+### Session Goal
+Small targeted security fixes: CORS env-var wiring, `object.update` forbidden-field rejection, join role documentation. No architecture changes.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `DexDraw_vNext_Bible.md` | Added commit hash table to Entry 13 (postscript). |
+| `apps/server-api/src/app.ts` | CORS now reads `process.env.PUBLIC_CLIENT_ORIGIN` when `options.publicClientOrigin` is not passed — fixes the gap where `buildApp()` (called with no args at runtime) never applied the env var. |
+| `packages/shared-protocol/src/index.ts` | `UpdateObjectPayloadSchema` now rejects patches containing `id`, `type`, `createdAt`, or `createdBy` via `FORBIDDEN_PATCH_KEYS` + `.superRefine`. |
+| `apps/server-api/src/__tests__/server.test.ts` | Added CORS allowlist test; added `object.update` forbidden-patch regression test. |
+| `README.md` | Added Security Tradeoffs table documenting join role default, CORS behavior, and token storage. |
+
+### Security Decisions
+
+1. **CORS was fully open at runtime** — `buildApp()` is called with no options in `index.ts`, so `options.publicClientOrigin` was always `undefined`. Fixed by reading `process.env.PUBLIC_CLIENT_ORIGIN` as a fallback inside `buildApp`. Dev behavior (allow-all) unchanged when env var is unset.
+
+2. **`object.update` forbidden fields** — `patch: z.record(z.string(), z.unknown())` accepted any key. A malicious `{ id: "...", type: "..." }` patch would be spread over the stored object, corrupting identity and audit fields. Fixed with `FORBIDDEN_PATCH_KEYS` superRefine in `UpdateObjectPayloadSchema`.
+
+3. **Join role default stays `"edit"`** — Changing to `"view"` would require every joining client to explicitly send `requestedRole: "edit"`. That breaks the intended "share link → draw" flow. Documented as a deliberate tradeoff in README.
+
+### Bugs NOT fixed (deliberate deferral)
+
+- JWT in `sessionStorage` — acceptable for prototype; noted in README.
+- No HTTPS enforcement — out of scope for a local dev server.
+
+### Commands Run (Gates)
+
+```
+pnpm typecheck   # 0 errors
+pnpm test        # all passed (12 server-api + full suite)
+pnpm build       # pass
+pnpm lint        # 0 errors
+```
+
+### Commit Hashes (Entry 14 session)
+
+| Hash | Message |
+|------|---------|
+| `5941519` | docs: add commit hash table to Bible Entry 13 |
+| `2ad7656` | fix: read PUBLIC_CLIENT_ORIGIN env var for CORS allowlist |
+| `e092cad` | fix: reject forbidden fields (id/type/createdAt/createdBy) in object.update patch |

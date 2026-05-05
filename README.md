@@ -18,6 +18,14 @@ Alpha / developer prototype. The sync model, auth, and storage are intentionally
 
 Do not deploy this with real user data without replacing the storage and auth layers.
 
+## Security Tradeoffs
+
+| Area | Current behavior | Why / tradeoff |
+|------|-----------------|----------------|
+| **Join role default** | Guests who join without `requestedRole` receive `"edit"` access | Collaborative whiteboard; edit-by-default is the intended product flow. Change `const role = payload.requestedRole ?? "edit"` in `apps/server-api/src/app.ts` (and update the join test) if you want `"view"` as the default. |
+| **CORS** | Allows all origins when `PUBLIC_CLIENT_ORIGIN` is unset | Dev-friendly. Set `PUBLIC_CLIENT_ORIGIN` in production (see `.env.example`). |
+| **Token storage** | JWTs in `sessionStorage` | Not shared across tabs, not persistent — acceptable for a prototype. Use `httpOnly` cookies for production. |
+
 ---
 
 ## Requirements
