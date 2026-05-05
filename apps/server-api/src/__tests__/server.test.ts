@@ -312,6 +312,107 @@ describe("server api", () => {
     await app.close();
   }, 20_000);
 
+  it("lists canonical ops after a given server sequence", async () => {
+    const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
+    await app.listen({ port: 0, host: "127.0.0.1" });
+    const port = getPort(app.server.address() as AddressInfo | string | null);
+
+    const created = await fetch(`http://127.0.0.1:${port}/api/boards`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Replay Board",
+        templateId: "blank",
+        displayName: "Owner",
+      }),
+    }).then((response) => response.json());
+
+    const ws = new WebSocket(
+      `ws://127.0.0.1:${port}/ws/boards/${created.boardId}?token=${created.ownerToken}`,
+    );
+
+    await new Promise<void>((resolve, reject) => {
+      ws.addEventListener("open", () => resolve(), { once: true });
+      ws.addEventListener("error", reject, { once: true });
+    });
+
+    await new Promise<void>((resolve) => {
+      ws.addEventListener("message", (ev) => {
+        if (JSON.parse(String(ev.data)).type === "server.welcome") resolve();
+      });
+    });
+
+    const textPayload = {
+      id: "33333333-3333-4333-8333-333333333333",
+      type: "text",
+      x: 120,
+      y: 180,
+      text: "Replay me",
+      style: { color: "#111827", fontSize: 24 },
+      createdBy: "Owner",
+      createdAt: "2026-05-04T00:00:00.000Z",
+      updatedAt: "2026-05-04T00:00:00.000Z",
+      zIndex: 1,
+    };
+
+    await new Promise<void>((resolve) => {
+      let opCount = 0;
+      ws.addEventListener("message", (ev) => {
+        const msg = JSON.parse(String(ev.data));
+        if (msg.type !== "server.op") return;
+        opCount += 1;
+        if (opCount === 1) {
+          ws.send(
+            JSON.stringify({
+              type: "client.op",
+              boardId: created.boardId,
+              clientId: "11111111-1111-4111-8111-111111111111",
+              clientSeq: 2,
+              opId: "44444444-4444-4444-8444-444444444444",
+              opType: "object.create",
+              payload: textPayload,
+              sentAt: "2026-05-04T00:00:01.000Z",
+            }),
+          );
+          return;
+        }
+        if (opCount === 2) resolve();
+      });
+
+      ws.send(
+        JSON.stringify({
+          type: "client.op",
+          boardId: created.boardId,
+          clientId: "11111111-1111-4111-8111-111111111111",
+          clientSeq: 1,
+          opId: "22222222-2222-4222-8222-222222222222",
+          opType: "object.create",
+          payload: strokePayload,
+          sentAt: "2026-05-04T00:00:00.000Z",
+        }),
+      );
+    });
+
+    const replay = await fetch(
+      `http://127.0.0.1:${port}/api/boards/${created.boardId}/ops?since=1`,
+      {
+        headers: { authorization: `Bearer ${created.ownerToken}` },
+      },
+    ).then((response) => response.json());
+
+    expect(replay.boardId).toBe(created.boardId);
+    expect(replay.ops).toHaveLength(1);
+    expect(replay.ops[0]).toMatchObject({
+      type: "server.op",
+      serverSeq: 2,
+      opType: "object.create",
+    });
+    expect((replay.ops[0].payload as { id: string }).id).toBe(textPayload.id);
+
+    ws.close();
+    await app.close();
+  }, 20_000);
+
   it("snapshot_reset is broadcast on checkpoint.restore", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
     await app.listen({ port: 0, host: "127.0.0.1" });

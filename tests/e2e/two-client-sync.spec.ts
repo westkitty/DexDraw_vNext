@@ -85,6 +85,8 @@ test("presence and PNG export work", async ({ browser, page }) => {
   await secondPage.getByLabel("Join share code").fill(shareCode ?? "");
   await secondPage.getByLabel("Join display name").fill("Guest");
   await secondPage.getByRole("button", { name: "Join board" }).click();
+  await expect(page.locator('[data-status="connected"]')).toBeVisible();
+  await expect(secondPage.locator('[data-status="connected"]')).toBeVisible();
 
   const canvas = page.getByTestId("board-canvas");
   const box = await canvas.boundingBox();
@@ -110,4 +112,53 @@ test("presence and PNG export work", async ({ browser, page }) => {
   await page.getByRole("button", { name: "Export PNG" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toContain(".png");
+});
+
+test("reconnect replays missed durable ops after going back online", async ({
+  browser,
+  page,
+}) => {
+  await page.goto("/");
+
+  await page.getByLabel("Board name").fill("Reconnect Board");
+  await page.getByLabel("Your name").fill("Owner");
+  await page.getByRole("button", { name: "Create board" }).click();
+
+  const boardId = await page.getByTestId("board-id").textContent();
+  const shareCode = await page.getByTestId("share-code").textContent();
+  expect(boardId).toBeTruthy();
+  expect(shareCode).toBeTruthy();
+
+  const viewer = await browser.newPage();
+  await viewer.goto("/");
+  await viewer.getByLabel("Join board ID").fill(boardId ?? "");
+  await viewer.getByLabel("Join share code").fill(shareCode ?? "");
+  await viewer.getByLabel("Join display name").fill("Guest");
+  await viewer.getByRole("button", { name: "Join board" }).click();
+  await expect(viewer.getByTestId("board-canvas")).toBeVisible();
+
+  await viewer.context().setOffline(true);
+  await expect(viewer.getByText(/Status: disconnected/i)).toBeVisible({
+    timeout: 15_000,
+  });
+
+  await page.getByRole("button", { name: "Text" }).click();
+  const canvas = page.getByTestId("board-canvas");
+  const box = await canvas.boundingBox();
+  if (!box) {
+    throw new Error("Canvas bounds missing");
+  }
+
+  await page.mouse.click(box.x + 260, box.y + 180);
+  await expect(page.getByTestId("text-object")).toHaveCount(1);
+
+  await viewer.context().setOffline(false);
+  await expect(viewer.getByText(/Status: connected/i)).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(viewer.getByTestId("text-object")).toHaveCount(1, {
+    timeout: 15_000,
+  });
+
+  await viewer.close();
 });

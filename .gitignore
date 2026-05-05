@@ -8,3 +8,7 @@ apps/server-api/.dexdraw-data
 coverage
 refs
 *.tsbuildinfo
+
+.dexdraw-data/
+apps/server-api/apps/
+gemini_dexdraw_audit.log

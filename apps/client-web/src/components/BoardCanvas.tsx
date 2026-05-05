@@ -15,7 +15,7 @@ type BoardCanvasProps = {
   objects: BoardObject[];
   currentStroke: Point[];
   remotePresence: PresenceState[];
-  selectedObjectId?: string | null;
+  selectedObjectIds: string[];
   editingObjectId?: string | null;
   onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
@@ -114,7 +114,7 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
       objects,
       currentStroke,
       remotePresence,
-      selectedObjectId,
+      selectedObjectIds,
       editingObjectId,
       onPointerDown,
       onPointerMove,
@@ -139,10 +139,6 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
         },
       };
     }
-
-    const selectedObject = selectedObjectId
-      ? objects.find((o) => o.id === selectedObjectId)
-      : null;
 
     return (
       <svg
@@ -273,7 +269,11 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
           />
         ) : null}
 
-        {selectedObject ? <SelectionRing object={selectedObject} /> : null}
+        {objects
+          .filter((o) => selectedObjectIds.includes(o.id))
+          .map((o) => (
+            <SelectionRing key={`sel-${o.id}`} object={o} />
+          ))}
 
         {remotePresence.map((presence) =>
           presence.type === "presence.laser" ? (

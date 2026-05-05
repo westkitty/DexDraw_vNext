@@ -6,7 +6,7 @@ import type {
   ServerOpEnvelope,
 } from "@dexdraw/shared-protocol";
 import { PGlite } from "@electric-sql/pglite";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { boards, operations } from "./schema";
 
@@ -17,10 +17,35 @@ type Template = {
   objects: BoardObject[];
 };
 
+type OperationRow = {
+  boardId: string;
+  serverSeq: number;
+  clientId: string;
+  clientSeq: number;
+  opId: string;
+  opType: string;
+  payload: unknown;
+  createdAt: string;
+};
+
 export type DexDrawStore = Awaited<ReturnType<typeof createStore>>;
 
 function createShareCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function toServerEnvelope(row: OperationRow): ServerOpEnvelope {
+  return {
+    type: "server.op",
+    boardId: row.boardId,
+    serverSeq: row.serverSeq,
+    clientId: row.clientId,
+    clientSeq: row.clientSeq,
+    opId: row.opId,
+    opType: row.opType as ClientOpEnvelope["opType"],
+    payload: row.payload,
+    createdAt: row.createdAt,
+  };
 }
 
 async function ensureSchema(client: PGlite) {
@@ -117,6 +142,16 @@ export async function createStore(
         .orderBy(asc(operations.serverSeq));
     },
 
+    async getOpsSince(boardId: string, since: number) {
+      return db
+        .select()
+        .from(operations)
+        .where(
+          and(eq(operations.boardId, boardId), gt(operations.serverSeq, since)),
+        )
+        .orderBy(asc(operations.serverSeq));
+    },
+
     async appendOperation(op: ClientOpEnvelope): Promise<ServerOpEnvelope> {
       const existing = await db
         .select()
@@ -125,51 +160,71 @@ export async function createStore(
         .limit(1);
 
       if (existing[0]) {
-        return {
-          type: "server.op",
-          boardId: existing[0].boardId,
-          serverSeq: existing[0].serverSeq,
-          clientId: existing[0].clientId,
-          clientSeq: existing[0].clientSeq,
-          opId: existing[0].opId,
-          opType: existing[0].opType as ClientOpEnvelope["opType"],
-          payload: existing[0].payload,
-          createdAt: existing[0].createdAt,
-        };
+        return toServerEnvelope(existing[0]);
       }
 
-      const latest = await db
-        .select({ serverSeq: operations.serverSeq })
-        .from(operations)
-        .where(eq(operations.boardId, op.boardId))
-        .orderBy(desc(operations.serverSeq))
-        .limit(1);
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const latest = await db
+          .select({ serverSeq: operations.serverSeq })
+          .from(operations)
+          .where(eq(operations.boardId, op.boardId))
+          .orderBy(desc(operations.serverSeq))
+          .limit(1);
 
-      const serverSeq = (latest[0]?.serverSeq ?? 0) + 1;
-      const createdAt = new Date().toISOString();
+        const serverSeq = (latest[0]?.serverSeq ?? 0) + 1;
+        const createdAt = new Date().toISOString();
 
-      await db.insert(operations).values({
-        boardId: op.boardId,
-        serverSeq,
-        clientId: op.clientId,
-        clientSeq: op.clientSeq,
-        opId: op.opId,
-        opType: op.opType,
-        payload: op.payload,
-        createdAt,
-      });
+        try {
+          await db.insert(operations).values({
+            boardId: op.boardId,
+            serverSeq,
+            clientId: op.clientId,
+            clientSeq: op.clientSeq,
+            opId: op.opId,
+            opType: op.opType,
+            payload: op.payload,
+            createdAt,
+          });
 
-      return {
-        type: "server.op",
-        boardId: op.boardId,
-        serverSeq,
-        clientId: op.clientId,
-        clientSeq: op.clientSeq,
-        opId: op.opId,
-        opType: op.opType,
-        payload: op.payload,
-        createdAt,
-      };
+          return {
+            type: "server.op",
+            boardId: op.boardId,
+            serverSeq,
+            clientId: op.clientId,
+            clientSeq: op.clientSeq,
+            opId: op.opId,
+            opType: op.opType,
+            payload: op.payload,
+            createdAt,
+          };
+        } catch (error) {
+          const constraint =
+            error instanceof Error && "cause" in error
+              ? (error.cause as { constraint?: string } | undefined)?.constraint
+              : undefined;
+
+          if (constraint === "board_op_unique") {
+            const duplicate = await db
+              .select()
+              .from(operations)
+              .where(eq(operations.opId, op.opId))
+              .limit(1);
+            if (duplicate[0]) {
+              return toServerEnvelope(duplicate[0]);
+            }
+          }
+
+          if (constraint === "board_seq_unique") {
+            continue;
+          }
+
+          throw error;
+        }
+      }
+
+      throw new Error(
+        `Failed to append operation ${op.opId} after repeated server sequence conflicts.`,
+      );
     },
 
     async close() {

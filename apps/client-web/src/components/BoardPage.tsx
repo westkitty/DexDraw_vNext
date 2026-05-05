@@ -2,6 +2,7 @@ import { type Point, normalizeStroke } from "@dexdraw/shared-core";
 import type {
   BoardObject,
   CheckpointSummary,
+  OpsSinceResponse,
   Role,
   ServerOpEnvelope,
 } from "@dexdraw/shared-protocol";
@@ -25,14 +26,16 @@ import { type Tool, Toolbar } from "./Toolbar";
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 type UndoEntry =
-  | { kind: "create"; object: BoardObject }
+  | { kind: "create"; objects: BoardObject[] }
   | {
       kind: "update";
-      id: string;
-      prev: Partial<BoardObject>;
-      next: Partial<BoardObject>;
+      updates: Array<{
+        id: string;
+        prev: Partial<BoardObject>;
+        next: Partial<BoardObject>;
+      }>;
     }
-  | { kind: "delete"; object: BoardObject };
+  | { kind: "delete"; objects: BoardObject[] };
 
 export function BoardPage() {
   const { boardId = "" } = useParams();
@@ -47,7 +50,7 @@ export function BoardPage() {
   const [role, setRole] = useState<Role>("view");
   const [error, setError] = useState<string | null>(null);
   const [remotePresence, setRemotePresence] = useState<RemotePresence[]>([]);
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
   const [undoCount, setUndoCount] = useState(0);
   const [redoCount, setRedoCount] = useState(0);
@@ -58,16 +61,53 @@ export function BoardPage() {
 
   const socketRef = useRef<WebSocket | null>(null);
   const clientSeqRef = useRef(0);
+  const serverSeqRef = useRef(0);
   const strokeRef = useRef<Point[]>([]);
   const shapeStartRef = useRef<Point | null>(null);
   const canvasRef = useRef<SVGSVGElement | null>(null);
   const objectsRef = useRef<BoardObject[]>([]);
   const undoStackRef = useRef<UndoEntry[]>([]);
   const redoStackRef = useRef<UndoEntry[]>([]);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartPosRef = useRef<Point | null>(null);
+  const dragInitialObjectsRef = useRef<BoardObject[]>([]);
 
   useEffect(() => {
     objectsRef.current = objects;
   }, [objects]);
+
+  function moveObject(
+    object: BoardObject,
+    dx: number,
+    dy: number,
+  ): BoardObject {
+    if (object.type === "stroke") {
+      return {
+        ...object,
+        points: object.points.map((p) => ({ ...p, x: p.x + dx, y: p.y + dy })),
+      };
+    }
+    if (
+      object.type === "rectangle" ||
+      object.type === "text" ||
+      object.type === "note"
+    ) {
+      return {
+        ...object,
+        x: object.x + dx,
+        y: object.y + dy,
+      };
+    }
+    if (object.type === "ellipse") {
+      return {
+        ...object,
+        cx: object.cx + dx,
+        cy: object.cy + dy,
+      };
+    }
+    return object;
+  }
 
   useEffect(() => {
     if (!boardId || !token) {
@@ -78,84 +118,200 @@ export function BoardPage() {
       return;
     }
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const socket = new WebSocket(
-      `${protocol}//${window.location.host}/ws/boards/${boardId}?token=${encodeURIComponent(token)}`,
-    );
-    socketRef.current = socket;
-    setStatus("connecting");
-    setError(null);
+    let cancelled = false;
 
-    socket.addEventListener("open", () => {
-      setStatus("connected");
-    });
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
 
-    socket.addEventListener("close", () => {
-      setStatus("disconnected");
-    });
+    const loadCheckpoints = async () => {
+      const resp = await fetch(`/api/boards/${boardId}/checkpoints`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      setCheckpoints(data.checkpoints ?? []);
+    };
 
-    socket.addEventListener("message", async (event) => {
-      const message = JSON.parse(String(event.data));
-
-      if (message.type === "server.welcome") {
-        setRole(message.role);
-        setObjects(message.snapshot);
-        const resp = await fetch(`/api/boards/${boardId}/checkpoints`, {
-          headers: { authorization: `Bearer ${token}` },
-        });
-        if (resp.ok) {
-          const data = await resp.json();
-          setCheckpoints(data.checkpoints ?? []);
-        }
+    const replayMissedOps = async (
+      since: number,
+      fallbackSnapshot: BoardObject[],
+    ) => {
+      const resp = await fetch(`/api/boards/${boardId}/ops?since=${since}`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) {
+        setObjects(fallbackSnapshot);
         return;
       }
 
-      if (message.type === "server.snapshot_reset") {
-        setObjects(message.snapshot);
-        undoStackRef.current = [];
-        redoStackRef.current = [];
-        setUndoCount(0);
-        setRedoCount(0);
+      const data = (await resp.json()) as OpsSinceResponse;
+      if (data.ops.some((op) => op.opType === "checkpoint.restore")) {
+        setObjects(fallbackSnapshot);
         return;
       }
 
-      if (message.type === "server.op") {
-        if (message.opType === "checkpoint.create") {
-          const payload = message.payload as { id: string; name: string };
-          setCheckpoints((prev) => [
-            ...prev,
-            {
-              id: payload.id,
-              name: payload.name,
-              serverSeq: message.serverSeq,
-              createdAt: message.createdAt,
-            },
-          ]);
-        } else {
-          setObjects((current) =>
-            applyCanonicalOperation(current, message as ServerOpEnvelope),
-          );
-        }
-        return;
-      }
+      setObjects((current) =>
+        data.ops.reduce((acc, op) => applyCanonicalOperation(acc, op), current),
+      );
+    };
 
+    const scheduleReconnect = () => {
       if (
-        message.type === "presence.cursor" ||
-        message.type === "presence.laser"
+        cancelled ||
+        reconnectTimerRef.current !== null ||
+        !window.navigator.onLine
       ) {
-        setRemotePresence((current) =>
-          mergePresence(current, message as RemotePresence),
-        );
+        return;
+      }
+      reconnectTimerRef.current = window.setTimeout(() => {
+        reconnectTimerRef.current = null;
+        void connect();
+      }, 1_000);
+    };
+
+    const connect = async () => {
+      if (cancelled) return;
+
+      const existing = socketRef.current;
+      if (
+        existing &&
+        (existing.readyState === WebSocket.OPEN ||
+          existing.readyState === WebSocket.CONNECTING)
+      ) {
         return;
       }
 
-      if (message.type === "server.error") {
-        setError(message.message);
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(
+        `${protocol}//${window.location.host}/ws/boards/${boardId}?token=${encodeURIComponent(token)}`,
+      );
+      socketRef.current = socket;
+      setStatus("connecting");
+      setError(null);
+
+      socket.addEventListener("open", () => {
+        clearReconnectTimer();
+        setStatus("connected");
+      });
+
+      socket.addEventListener("close", () => {
+        if (socketRef.current === socket) {
+          socketRef.current = null;
+        }
+        setStatus("disconnected");
+        scheduleReconnect();
+      });
+
+      socket.addEventListener("error", () => {
+        setStatus("disconnected");
+      });
+
+      socket.addEventListener("message", async (event) => {
+        const message = JSON.parse(String(event.data));
+
+        if (message.type === "server.welcome") {
+          const previousSeq = serverSeqRef.current;
+          setRole(message.role);
+          serverSeqRef.current = message.serverSeq;
+          if (
+            previousSeq > 0 &&
+            previousSeq < message.serverSeq &&
+            objectsRef.current.length > 0
+          ) {
+            await replayMissedOps(previousSeq, message.snapshot);
+          } else {
+            setObjects(message.snapshot);
+          }
+          await loadCheckpoints();
+          return;
+        }
+
+        if (message.type === "server.snapshot_reset") {
+          serverSeqRef.current = message.serverSeq;
+          setObjects(message.snapshot);
+          undoStackRef.current = [];
+          redoStackRef.current = [];
+          setUndoCount(0);
+          setRedoCount(0);
+          return;
+        }
+
+        if (message.type === "server.op") {
+          serverSeqRef.current = Math.max(
+            serverSeqRef.current,
+            message.serverSeq,
+          );
+          if (message.opType === "checkpoint.create") {
+            const payload = message.payload as { id: string; name: string };
+            setCheckpoints((prev) => [
+              ...prev,
+              {
+                id: payload.id,
+                name: payload.name,
+                serverSeq: message.serverSeq,
+                createdAt: message.createdAt,
+              },
+            ]);
+          } else {
+            setObjects((current) =>
+              applyCanonicalOperation(current, message as ServerOpEnvelope),
+            );
+          }
+          return;
+        }
+
+        if (
+          message.type === "presence.cursor" ||
+          message.type === "presence.laser"
+        ) {
+          setRemotePresence((current) =>
+            mergePresence(current, message as RemotePresence),
+          );
+          return;
+        }
+
+        if (message.type === "server.error") {
+          setError(message.message);
+        }
+      });
+    };
+
+    const handleOffline = () => {
+      setStatus("disconnected");
+      clearReconnectTimer();
+      const active = socketRef.current;
+      socketRef.current = null;
+      if (
+        active &&
+        (active.readyState === WebSocket.OPEN ||
+          active.readyState === WebSocket.CONNECTING)
+      ) {
+        active.close();
       }
-    });
+    };
+
+    const handleOnline = () => {
+      if (cancelled) return;
+      if (socketRef.current?.readyState === WebSocket.OPEN) return;
+      clearReconnectTimer();
+      void connect();
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    void connect();
 
     return () => {
-      socket.close();
+      cancelled = true;
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+      clearReconnectTimer();
+      socketRef.current?.close();
+      socketRef.current = null;
     };
   }, [boardId, token]);
 
@@ -210,7 +366,9 @@ export function BoardPage() {
     payload: unknown,
     skipUndoRecord?: boolean,
   ): void {
-    if (!socketRef.current) return;
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
     clientSeqRef.current += 1;
     socketRef.current.send(
       JSON.stringify({
@@ -234,16 +392,22 @@ export function BoardPage() {
       ),
     );
     sendRaw("object.create", object);
-    pushUndo({ kind: "create", object });
+    pushUndo({ kind: "create", objects: [object] });
   }
 
-  function sendObjectUpdate(id: string, patch: Partial<BoardObject>) {
+  function sendObjectUpdate(
+    id: string,
+    patch: Partial<BoardObject>,
+    overridePrev?: Partial<BoardObject>,
+  ) {
     const previous = objectsRef.current.find((o) => o.id === id);
     if (!previous) return;
 
-    const prevFields: Partial<BoardObject> = {};
-    for (const key of Object.keys(patch) as Array<keyof BoardObject>) {
-      (prevFields as Record<string, unknown>)[key] = previous[key];
+    const prevFields: Partial<BoardObject> = overridePrev ?? {};
+    if (!overridePrev) {
+      for (const key of Object.keys(patch) as Array<keyof BoardObject>) {
+        (prevFields as Record<string, unknown>)[key] = previous[key];
+      }
     }
 
     setObjects((current) =>
@@ -260,7 +424,10 @@ export function BoardPage() {
       }),
     );
     sendRaw("object.update", { id, patch });
-    pushUndo({ kind: "update", id, prev: prevFields, next: patch });
+    pushUndo({
+      kind: "update",
+      updates: [{ id, prev: prevFields, next: patch }],
+    });
   }
 
   function sendObjectDelete(id: string) {
@@ -268,9 +435,11 @@ export function BoardPage() {
     if (!object) return;
 
     setObjects((current) => current.filter((o) => o.id !== id));
-    if (selectedObjectId === id) setSelectedObjectId(null);
+    if (selectedObjectIds.includes(id)) {
+      setSelectedObjectIds((prev) => prev.filter((oid) => oid !== id));
+    }
     sendRaw("object.delete", { id });
-    pushUndo({ kind: "delete", object });
+    pushUndo({ kind: "delete", objects: [object] });
   }
 
   function handleUndo() {
@@ -278,30 +447,36 @@ export function BoardPage() {
     if (!entry) return;
 
     if (entry.kind === "create") {
-      setObjects((current) => current.filter((o) => o.id !== entry.object.id));
-      sendRaw("object.delete", { id: entry.object.id }, true);
+      for (const object of entry.objects) {
+        setObjects((current) => current.filter((o) => o.id !== object.id));
+        sendRaw("object.delete", { id: object.id }, true);
+      }
       redoStackRef.current.push(entry);
     } else if (entry.kind === "update") {
-      setObjects((current) =>
-        applyCanonicalOperation(current, {
-          type: "server.op",
-          boardId,
-          serverSeq: -1,
-          clientId,
-          clientSeq: -1,
-          opId: crypto.randomUUID(),
-          opType: "object.update",
-          payload: { id: entry.id, patch: entry.prev },
-          createdAt: new Date().toISOString(),
-        }),
-      );
-      sendRaw("object.update", { id: entry.id, patch: entry.prev }, true);
+      for (const update of entry.updates) {
+        setObjects((current) =>
+          applyCanonicalOperation(current, {
+            type: "server.op",
+            boardId,
+            serverSeq: -1,
+            clientId,
+            clientSeq: -1,
+            opId: crypto.randomUUID(),
+            opType: "object.update",
+            payload: { id: update.id, patch: update.prev },
+            createdAt: new Date().toISOString(),
+          }),
+        );
+        sendRaw("object.update", { id: update.id, patch: update.prev }, true);
+      }
       redoStackRef.current.push(entry);
     } else if (entry.kind === "delete") {
-      setObjects((current) =>
-        [...current, entry.object].sort((a, b) => a.zIndex - b.zIndex),
-      );
-      sendRaw("object.create", entry.object, true);
+      for (const object of entry.objects) {
+        setObjects((current) =>
+          [...current, object].sort((a, b) => a.zIndex - b.zIndex),
+        );
+        sendRaw("object.create", object, true);
+      }
       redoStackRef.current.push(entry);
     }
 
@@ -314,32 +489,38 @@ export function BoardPage() {
     if (!entry) return;
 
     if (entry.kind === "create") {
-      setObjects((current) =>
-        [...current.filter((o) => o.id !== entry.object.id), entry.object].sort(
-          (a, b) => a.zIndex - b.zIndex,
-        ),
-      );
-      sendRaw("object.create", entry.object, true);
+      for (const object of entry.objects) {
+        setObjects((current) =>
+          [...current.filter((o) => o.id !== object.id), object].sort(
+            (a, b) => a.zIndex - b.zIndex,
+          ),
+        );
+        sendRaw("object.create", object, true);
+      }
       undoStackRef.current.push(entry);
     } else if (entry.kind === "update") {
-      setObjects((current) =>
-        applyCanonicalOperation(current, {
-          type: "server.op",
-          boardId,
-          serverSeq: -1,
-          clientId,
-          clientSeq: -1,
-          opId: crypto.randomUUID(),
-          opType: "object.update",
-          payload: { id: entry.id, patch: entry.next },
-          createdAt: new Date().toISOString(),
-        }),
-      );
-      sendRaw("object.update", { id: entry.id, patch: entry.next }, true);
+      for (const update of entry.updates) {
+        setObjects((current) =>
+          applyCanonicalOperation(current, {
+            type: "server.op",
+            boardId,
+            serverSeq: -1,
+            clientId,
+            clientSeq: -1,
+            opId: crypto.randomUUID(),
+            opType: "object.update",
+            payload: { id: update.id, patch: update.next },
+            createdAt: new Date().toISOString(),
+          }),
+        );
+        sendRaw("object.update", { id: update.id, patch: update.next }, true);
+      }
       undoStackRef.current.push(entry);
     } else if (entry.kind === "delete") {
-      setObjects((current) => current.filter((o) => o.id !== entry.object.id));
-      sendRaw("object.delete", { id: entry.object.id }, true);
+      for (const object of entry.objects) {
+        setObjects((current) => current.filter((o) => o.id !== object.id));
+        sendRaw("object.delete", { id: object.id }, true);
+      }
       undoStackRef.current.push(entry);
     }
 
@@ -353,11 +534,19 @@ export function BoardPage() {
       if (editingObjectId) return;
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
-        selectedObjectId &&
+        selectedObjectIds.length > 0 &&
         role !== "view"
       ) {
         e.preventDefault();
-        sendObjectDelete(selectedObjectId);
+        const toDelete = objectsRef.current.filter((o) =>
+          selectedObjectIds.includes(o.id),
+        );
+        for (const object of toDelete) {
+          setObjects((current) => current.filter((o) => o.id !== object.id));
+          sendRaw("object.delete", { id: object.id });
+        }
+        setSelectedObjectIds([]);
+        pushUndo({ kind: "delete", objects: toDelete });
         return;
       }
       if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
@@ -375,17 +564,40 @@ export function BoardPage() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingObjectId, selectedObjectId, role]);
+  }, [editingObjectId, selectedObjectIds, role]);
 
   function handleObjectPointerDown(
     id: string,
     event: ReactPointerEvent<SVGElement>,
   ) {
-    if (tool === "select") {
-      setSelectedObjectId(id);
-    }
-    // For other tools, let the canvas-level handler decide (event already stopped)
-    void event;
+    if (tool !== "select" || role === "view" || editingObjectId) return;
+
+    const svg = canvasRef.current;
+    if (!svg) return;
+
+    const svgPoint = svg.createSVGPoint();
+    svgPoint.x = event.clientX;
+    svgPoint.y = event.clientY;
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return;
+    const point = svgPoint.matrixTransform(matrix.inverse());
+
+    const isShift = event.shiftKey;
+    const nextSelected = isShift
+      ? selectedObjectIds.includes(id)
+        ? selectedObjectIds.filter((oid) => oid !== id)
+        : [...selectedObjectIds, id]
+      : selectedObjectIds.includes(id)
+        ? selectedObjectIds
+        : [id];
+
+    setSelectedObjectIds(nextSelected);
+
+    isDraggingRef.current = true;
+    dragStartPosRef.current = { x: point.x, y: point.y };
+    dragInitialObjectsRef.current = objectsRef.current.filter((object) =>
+      nextSelected.includes(object.id),
+    );
   }
 
   function handleObjectDoubleClick(id: string) {
@@ -393,7 +605,7 @@ export function BoardPage() {
     if (!object) return;
     if (object.type === "text" || object.type === "note") {
       setEditingObjectId(id);
-      setSelectedObjectId(null);
+      setSelectedObjectIds([]);
     }
   }
 
@@ -421,7 +633,31 @@ export function BoardPage() {
 
     if (tool === "select") {
       const hit = hitTestObjects(objectsRef.current, point.x, point.y);
-      setSelectedObjectId(hit?.id ?? null);
+      const isShift = event.shiftKey;
+
+      if (hit) {
+        let nextSelected: string[];
+        if (isShift) {
+          nextSelected = selectedObjectIds.includes(hit.id)
+            ? selectedObjectIds.filter((id) => id !== hit.id)
+            : [...selectedObjectIds, hit.id];
+        } else {
+          nextSelected = selectedObjectIds.includes(hit.id)
+            ? selectedObjectIds
+            : [hit.id];
+        }
+        setSelectedObjectIds(nextSelected);
+
+        isDraggingRef.current = true;
+        dragStartPosRef.current = point;
+        dragInitialObjectsRef.current = objectsRef.current.filter((o) =>
+          nextSelected.includes(o.id),
+        );
+      } else {
+        if (!isShift) {
+          setSelectedObjectIds([]);
+        }
+      }
       return;
     }
 
@@ -473,6 +709,30 @@ export function BoardPage() {
     );
 
     if (
+      isDraggingRef.current &&
+      dragInitialObjectsRef.current.length > 0 &&
+      dragStartPosRef.current
+    ) {
+      const dx = point.x - dragStartPosRef.current.x;
+      const dy = point.y - dragStartPosRef.current.y;
+
+      const movedIds = new Set(dragInitialObjectsRef.current.map((o) => o.id));
+      const movedObjects = dragInitialObjectsRef.current.map((o) =>
+        moveObject(o, dx, dy),
+      );
+
+      setObjects((current) =>
+        current.map((o) => {
+          if (movedIds.has(o.id)) {
+            return movedObjects.find((mo) => mo.id === o.id) ?? o;
+          }
+          return o;
+        }),
+      );
+      return;
+    }
+
+    if (
       strokeRef.current.length === 0 ||
       role === "view" ||
       tool === "select"
@@ -494,6 +754,70 @@ export function BoardPage() {
   }
 
   function handlePointerUp() {
+    if (
+      isDraggingRef.current &&
+      dragInitialObjectsRef.current.length > 0 &&
+      dragStartPosRef.current
+    ) {
+      const updates: Array<{
+        id: string;
+        prev: Partial<BoardObject>;
+        next: Partial<BoardObject>;
+      }> = [];
+
+      for (const initial of dragInitialObjectsRef.current) {
+        const final = objectsRef.current.find((o) => o.id === initial.id);
+        if (!final) continue;
+
+        // biome-ignore lint/suspicious/noExplicitAny: patch assignments are tricky with discriminated unions
+        const patch: any = {};
+        // biome-ignore lint/suspicious/noExplicitAny: prev assignments are tricky with discriminated unions
+        const prev: any = {};
+        let moved = false;
+
+        if (final.type === "stroke" && initial.type === "stroke") {
+          patch.points = final.points;
+          prev.points = initial.points;
+          moved =
+            final.points[0].x !== initial.points[0].x ||
+            final.points[0].y !== initial.points[0].y;
+        } else if (
+          (final.type === "rectangle" ||
+            final.type === "text" ||
+            final.type === "note") &&
+          (initial.type === "rectangle" ||
+            initial.type === "text" ||
+            initial.type === "note")
+        ) {
+          patch.x = final.x;
+          patch.y = final.y;
+          prev.x = initial.x;
+          prev.y = initial.y;
+          moved = final.x !== initial.x || final.y !== initial.y;
+        } else if (final.type === "ellipse" && initial.type === "ellipse") {
+          patch.cx = final.cx;
+          patch.cy = final.cy;
+          prev.cx = initial.cx;
+          prev.cy = initial.cy;
+          moved = final.cx !== initial.cx || final.cy !== initial.cy;
+        }
+
+        if (moved) {
+          sendRaw("object.update", { id: final.id, patch });
+          updates.push({ id: final.id, prev, next: patch });
+        }
+      }
+
+      if (updates.length > 0) {
+        pushUndo({ kind: "update", updates });
+      }
+
+      isDraggingRef.current = false;
+      dragStartPosRef.current = null;
+      dragInitialObjectsRef.current = [];
+      return;
+    }
+
     if (strokeRef.current.length < 2 || role === "view" || !socketRef.current) {
       shapeStartRef.current = null;
       strokeRef.current = [];
@@ -677,7 +1001,7 @@ export function BoardPage() {
           objects={objects}
           currentStroke={currentStroke}
           remotePresence={remotePresence}
-          selectedObjectId={selectedObjectId}
+          selectedObjectIds={selectedObjectIds}
           editingObjectId={editingObjectId}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

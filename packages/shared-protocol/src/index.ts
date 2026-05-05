@@ -259,6 +259,13 @@ export const SnapshotResponseSchema = z.object({
   objects: z.array(BoardObjectSchema),
 });
 
+export const OpsSinceResponseSchema = z.object({
+  boardId: z.string().uuid(),
+  since: z.number().int().nonnegative(),
+  ops: z.array(ServerOpEnvelopeSchema),
+});
+export type OpsSinceResponse = z.infer<typeof OpsSinceResponseSchema>;
+
 export const TemplateSchema = z.object({
   id: z.string(),
   name: z.string(),

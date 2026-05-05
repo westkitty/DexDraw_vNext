@@ -4,6 +4,7 @@ import {
   type ClientOpEnvelope,
   ClientOpEnvelopeSchema,
   JoinBoardRequestSchema,
+  OpsSinceResponseSchema,
   PresenceMessageSchema,
   type Role,
   RoleSchema,
@@ -271,6 +272,62 @@ export async function buildApp(options: BuildAppOptions = {}) {
       });
 
     return reply.send({ checkpoints });
+  });
+
+  app.get("/api/boards/:boardId/ops", async (request, reply) => {
+    const params = request.params as { boardId: string };
+    const query = request.query as { since?: string };
+    const authorization = request.headers.authorization;
+    const token = authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+
+    if (!token) {
+      return reply
+        .status(401)
+        .send(createServerError("unauthorized", "Missing token.", false));
+    }
+
+    const verified = await verifyBoardToken(tokenSecret, token).catch(
+      () => null,
+    );
+    if (!verified || verified.boardId !== params.boardId) {
+      return reply
+        .status(403)
+        .send(createServerError("unauthorized", "Invalid token.", false));
+    }
+
+    const since = Number(query.since ?? "0");
+    if (!Number.isInteger(since) || since < 0) {
+      return reply
+        .status(400)
+        .send(
+          createServerError(
+            "invalid_payload",
+            "Query parameter 'since' must be a non-negative integer.",
+            false,
+          ),
+        );
+    }
+
+    const ops = await store.getOpsSince(params.boardId, since);
+    return reply.send(
+      OpsSinceResponseSchema.parse({
+        boardId: params.boardId,
+        since,
+        ops: ops.map((op) => ({
+          type: "server.op" as const,
+          boardId: op.boardId,
+          serverSeq: op.serverSeq,
+          clientId: op.clientId,
+          clientSeq: op.clientSeq,
+          opId: op.opId,
+          opType: op.opType as ClientOpEnvelope["opType"],
+          payload: op.payload,
+          createdAt: op.createdAt,
+        })),
+      }),
+    );
   });
 
   app.get(
