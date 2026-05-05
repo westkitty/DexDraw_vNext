@@ -195,6 +195,22 @@ export const ServerWelcomeSchema = z.object({
   snapshot: z.array(BoardObjectSchema),
 });
 
+export const ServerSnapshotResetSchema = z.object({
+  type: z.literal("server.snapshot_reset"),
+  boardId: z.string().uuid(),
+  serverSeq: z.number().int().positive(),
+  snapshot: z.array(BoardObjectSchema),
+});
+export type ServerSnapshotReset = z.infer<typeof ServerSnapshotResetSchema>;
+
+export const CheckpointSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  serverSeq: z.number().int().positive(),
+  createdAt: IsoDateSchema,
+});
+export type CheckpointSummary = z.infer<typeof CheckpointSummarySchema>;
+
 export const ServerErrorSchema = z.object({
   type: z.literal("server.error"),
   code: z.enum([

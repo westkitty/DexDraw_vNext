@@ -1,6 +1,7 @@
 import { type Point, normalizeStroke } from "@dexdraw/shared-core";
 import type {
   BoardObject,
+  CheckpointSummary,
   Role,
   ServerOpEnvelope,
 } from "@dexdraw/shared-protocol";
@@ -8,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useParams } from "react-router-dom";
 import { applyCanonicalOperation } from "../lib/boardState";
-import { exportSvgToPng } from "../lib/export";
+import { exportMarkdown, exportSvgToPng, exportToPdf } from "../lib/export";
 import { hitTestObjects } from "../lib/hitTest";
 import { type RemotePresence, mergePresence } from "../lib/presence";
 import {
@@ -50,6 +51,10 @@ export function BoardPage() {
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
   const [undoCount, setUndoCount] = useState(0);
   const [redoCount, setRedoCount] = useState(0);
+  const [checkpoints, setCheckpoints] = useState<CheckpointSummary[]>([]);
+  const [selectedCheckpointId, setSelectedCheckpointId] = useState<
+    string | null
+  >(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const clientSeqRef = useRef(0);
@@ -89,19 +94,48 @@ export function BoardPage() {
       setStatus("disconnected");
     });
 
-    socket.addEventListener("message", (event) => {
+    socket.addEventListener("message", async (event) => {
       const message = JSON.parse(String(event.data));
 
       if (message.type === "server.welcome") {
         setRole(message.role);
         setObjects(message.snapshot);
+        const resp = await fetch(`/api/boards/${boardId}/checkpoints`, {
+          headers: { authorization: `Bearer ${token}` },
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          setCheckpoints(data.checkpoints ?? []);
+        }
+        return;
+      }
+
+      if (message.type === "server.snapshot_reset") {
+        setObjects(message.snapshot);
+        undoStackRef.current = [];
+        redoStackRef.current = [];
+        setUndoCount(0);
+        setRedoCount(0);
         return;
       }
 
       if (message.type === "server.op") {
-        setObjects((current) =>
-          applyCanonicalOperation(current, message as ServerOpEnvelope),
-        );
+        if (message.opType === "checkpoint.create") {
+          const payload = message.payload as { id: string; name: string };
+          setCheckpoints((prev) => [
+            ...prev,
+            {
+              id: payload.id,
+              name: payload.name,
+              serverSeq: message.serverSeq,
+              createdAt: message.createdAt,
+            },
+          ]);
+        } else {
+          setObjects((current) =>
+            applyCanonicalOperation(current, message as ServerOpEnvelope),
+          );
+        }
         return;
       }
 
@@ -561,6 +595,30 @@ export function BoardPage() {
     await exportSvgToPng(canvasRef.current, `dexdraw-${boardId}.png`);
   }
 
+  function handleExportMarkdown() {
+    if (objects.length === 0) return;
+    exportMarkdown(objects, `dexdraw-${boardId}.md`);
+  }
+
+  function handleExportPdf() {
+    if (!canvasRef.current || objects.length === 0) return;
+    exportToPdf(canvasRef.current, `dexdraw-${boardId}.pdf`);
+  }
+
+  function handleSaveCheckpoint() {
+    const name = window.prompt("Checkpoint name:");
+    if (!name) return;
+    sendRaw("checkpoint.create", {
+      id: crypto.randomUUID(),
+      name,
+    });
+  }
+
+  function handleRestoreCheckpoint() {
+    if (!selectedCheckpointId) return;
+    sendRaw("checkpoint.restore", { id: selectedCheckpointId });
+  }
+
   const editingObject =
     editingObjectId !== null
       ? objects.find(
@@ -590,10 +648,17 @@ export function BoardPage() {
           roleLabel={role}
           undoCount={undoCount}
           redoCount={redoCount}
+          checkpoints={checkpoints}
+          selectedCheckpointId={selectedCheckpointId}
           onToolChange={setTool}
           onExportPng={handleExportPng}
           onUndo={handleUndo}
           onRedo={handleRedo}
+          onSaveCheckpoint={handleSaveCheckpoint}
+          onSelectCheckpoint={setSelectedCheckpointId}
+          onRestoreCheckpoint={handleRestoreCheckpoint}
+          onExportMarkdown={handleExportMarkdown}
+          onExportPdf={handleExportPdf}
           exportDisabled={objects.length === 0}
         />
 

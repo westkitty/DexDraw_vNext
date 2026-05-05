@@ -244,4 +244,203 @@ describe("server api", () => {
     socket.close();
     await app.close();
   }, 20_000);
+
+  it("lists checkpoints via REST endpoint", async () => {
+    const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
+    await app.listen({ port: 0, host: "127.0.0.1" });
+    const port = getPort(app.server.address() as AddressInfo | string | null);
+
+    const created = await fetch(`http://127.0.0.1:${port}/api/boards`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "CP Board",
+        templateId: "blank",
+        displayName: "Owner",
+      }),
+    }).then((r) => r.json());
+
+    const ws = new WebSocket(
+      `ws://127.0.0.1:${port}/ws/boards/${created.boardId}?token=${created.ownerToken}`,
+    );
+
+    await new Promise<void>((resolve, reject) => {
+      ws.addEventListener("open", () => resolve(), { once: true });
+      ws.addEventListener("error", reject, { once: true });
+    });
+
+    // Wait for server.welcome
+    await new Promise<void>((resolve) => {
+      ws.addEventListener("message", (ev) => {
+        const msg = JSON.parse(String(ev.data));
+        if (msg.type === "server.welcome") resolve();
+      });
+    });
+
+    // Send checkpoint.create
+    ws.send(
+      JSON.stringify({
+        type: "client.op",
+        boardId: created.boardId,
+        clientId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        clientSeq: 1,
+        opId: "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
+        opType: "checkpoint.create",
+        payload: { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", name: "v1" },
+        sentAt: "2026-05-04T00:00:00.000Z",
+      }),
+    );
+
+    // Wait for server.op acknowledgement
+    await new Promise<void>((resolve) => {
+      ws.addEventListener("message", (ev) => {
+        const msg = JSON.parse(String(ev.data));
+        if (msg.type === "server.op" && msg.opType === "checkpoint.create")
+          resolve();
+      });
+    });
+
+    const checkpoints = await fetch(
+      `http://127.0.0.1:${port}/api/boards/${created.boardId}/checkpoints`,
+      { headers: { authorization: `Bearer ${created.ownerToken}` } },
+    ).then((r) => r.json());
+
+    expect(checkpoints.checkpoints).toHaveLength(1);
+    expect(checkpoints.checkpoints[0]).toMatchObject({ name: "v1" });
+
+    ws.close();
+    await app.close();
+  }, 20_000);
+
+  it("snapshot_reset is broadcast on checkpoint.restore", async () => {
+    const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
+    await app.listen({ port: 0, host: "127.0.0.1" });
+    const port = getPort(app.server.address() as AddressInfo | string | null);
+
+    const created = await fetch(`http://127.0.0.1:${port}/api/boards`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Restore Board",
+        templateId: "blank",
+        displayName: "Owner",
+      }),
+    }).then((r) => r.json());
+
+    const ws = new WebSocket(
+      `ws://127.0.0.1:${port}/ws/boards/${created.boardId}?token=${created.ownerToken}`,
+    );
+
+    await new Promise<void>((resolve, reject) => {
+      ws.addEventListener("open", () => resolve(), { once: true });
+      ws.addEventListener("error", reject, { once: true });
+    });
+
+    await new Promise<void>((resolve) => {
+      ws.addEventListener("message", (ev) => {
+        if (JSON.parse(String(ev.data)).type === "server.welcome") resolve();
+      });
+    });
+
+    // Create an object
+    ws.send(
+      JSON.stringify({
+        type: "client.op",
+        boardId: created.boardId,
+        clientId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        clientSeq: 1,
+        opId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        opType: "object.create",
+        payload: strokePayload,
+        sentAt: "2026-05-04T00:00:00.000Z",
+      }),
+    );
+    await new Promise<void>((resolve) => {
+      ws.addEventListener("message", (ev) => {
+        const m = JSON.parse(String(ev.data));
+        if (m.type === "server.op" && m.opType === "object.create") resolve();
+      });
+    });
+
+    // Checkpoint
+    ws.send(
+      JSON.stringify({
+        type: "client.op",
+        boardId: created.boardId,
+        clientId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        clientSeq: 2,
+        opId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        opType: "checkpoint.create",
+        payload: { id: "ffffffff-ffff-4fff-8fff-ffffffffffff", name: "snap" },
+        sentAt: "2026-05-04T00:00:00.000Z",
+      }),
+    );
+    await new Promise<void>((resolve) => {
+      ws.addEventListener("message", (ev) => {
+        const m = JSON.parse(String(ev.data));
+        if (m.type === "server.op" && m.opType === "checkpoint.create")
+          resolve();
+      });
+    });
+
+    // Add another object after checkpoint
+    const afterPayload = {
+      ...strokePayload,
+      id: "11111111-1111-1111-8111-111111111111",
+      zIndex: 1,
+    };
+    ws.send(
+      JSON.stringify({
+        type: "client.op",
+        boardId: created.boardId,
+        clientId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        clientSeq: 3,
+        opId: "22222222-2222-2222-8222-222222222222",
+        opType: "object.create",
+        payload: afterPayload,
+        sentAt: "2026-05-04T00:00:00.000Z",
+      }),
+    );
+    await new Promise<void>((resolve) => {
+      ws.addEventListener("message", (ev) => {
+        const m = JSON.parse(String(ev.data));
+        if (
+          m.type === "server.op" &&
+          m.opType === "object.create" &&
+          (m.payload as { id: string }).id === afterPayload.id
+        )
+          resolve();
+      });
+    });
+
+    // Restore checkpoint
+    ws.send(
+      JSON.stringify({
+        type: "client.op",
+        boardId: created.boardId,
+        clientId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        clientSeq: 4,
+        opId: "33333333-3333-3333-8333-333333333333",
+        opType: "checkpoint.restore",
+        payload: { id: "ffffffff-ffff-4fff-8fff-ffffffffffff" },
+        sentAt: "2026-05-04T00:00:00.000Z",
+      }),
+    );
+
+    const resetMsg = await new Promise<{ type: string; snapshot: unknown[] }>(
+      (resolve) => {
+        ws.addEventListener("message", (ev) => {
+          const m = JSON.parse(String(ev.data));
+          if (m.type === "server.snapshot_reset") resolve(m);
+        });
+      },
+    );
+
+    // The snapshot should have only 1 object (the one before the checkpoint)
+    expect(resetMsg.snapshot).toHaveLength(1);
+    expect((resetMsg.snapshot[0] as { id: string }).id).toBe(strokePayload.id);
+
+    ws.close();
+    await app.close();
+  }, 25_000);
 });

@@ -1,3 +1,47 @@
+import type { BoardObject } from "@dexdraw/shared-protocol";
+
+export function boardToMarkdown(objects: BoardObject[]): string {
+  const sorted = [...objects].sort((a, b) => a.zIndex - b.zIndex);
+  const lines: string[] = ["# DexDraw Board", ""];
+
+  for (const obj of sorted) {
+    if (obj.type === "text") {
+      lines.push(obj.text, "");
+    } else if (obj.type === "note") {
+      for (const line of obj.text.split("\n")) {
+        lines.push(`> ${line}`);
+      }
+      lines.push("");
+    } else if (obj.type === "rectangle") {
+      lines.push("---", "");
+    }
+    // strokes and ellipses: skipped
+  }
+
+  return lines.join("\n");
+}
+
+export function exportMarkdown(objects: BoardObject[], filename: string): void {
+  const md = boardToMarkdown(objects);
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportToPdf(svgEl: SVGSVGElement, filename: string): void {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+  const titleEl = printWindow.document.createElement("title");
+  titleEl.textContent = filename;
+  printWindow.document.head.appendChild(titleEl);
+  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+  printWindow.document.body.appendChild(clone);
+}
+
 export async function exportSvgToPng(svg: SVGSVGElement, filename: string) {
   const serializer = new XMLSerializer();
   const svgMarkup = serializer.serializeToString(svg);

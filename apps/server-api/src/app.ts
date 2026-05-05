@@ -64,49 +64,49 @@ function sendJson(socket: WebSocket, payload: unknown) {
 }
 
 function snapshotFromOps(ops: Array<{ opType: string; payload: unknown }>) {
-  const objects = new Map<string, BoardObject>();
-
-  for (const op of ops) {
-    if (op.opType === "object.create") {
-      const object = op.payload as BoardObject;
-      objects.set(object.id, object);
-      continue;
-    }
-
-    if (op.opType === "object.update") {
-      const payload = op.payload as { id: string; patch: Partial<BoardObject> };
-      const previous = objects.get(payload.id);
-      if (!previous) {
-        continue;
-      }
-
-      objects.set(payload.id, { ...previous, ...payload.patch } as BoardObject);
-      continue;
-    }
-
-    if (op.opType === "object.delete") {
-      const payload = op.payload as { id: string };
-      objects.delete(payload.id);
-      continue;
-    }
-
-    if (op.opType === "object.reorder") {
-      const payload = op.payload as { id: string; zIndex: number };
-      const previous = objects.get(payload.id);
-      if (!previous) {
-        continue;
-      }
-
-      objects.set(payload.id, {
-        ...previous,
-        zIndex: payload.zIndex,
-      } as BoardObject);
+  const checkpointSlot = new Map<string, number>();
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i];
+    if (op.opType === "checkpoint.create") {
+      checkpointSlot.set((op.payload as { id: string }).id, i);
     }
   }
 
-  return [...objects.values()].sort(
-    (left, right) => left.zIndex - right.zIndex,
-  );
+  function replaySlice(limit: number): Map<string, BoardObject> {
+    const objs = new Map<string, BoardObject>();
+    for (let i = 0; i < limit; i++) {
+      const op = ops[i];
+      if (op.opType === "object.create") {
+        objs.set((op.payload as BoardObject).id, op.payload as BoardObject);
+      } else if (op.opType === "object.update") {
+        const { id, patch } = op.payload as {
+          id: string;
+          patch: Partial<BoardObject>;
+        };
+        const prev = objs.get(id);
+        if (prev) objs.set(id, { ...prev, ...patch } as BoardObject);
+      } else if (op.opType === "object.delete") {
+        objs.delete((op.payload as { id: string }).id);
+      } else if (op.opType === "object.reorder") {
+        const { id, zIndex } = op.payload as { id: string; zIndex: number };
+        const prev = objs.get(id);
+        if (prev) objs.set(id, { ...prev, zIndex } as BoardObject);
+      } else if (op.opType === "checkpoint.restore") {
+        const cpIdx = checkpointSlot.get((op.payload as { id: string }).id);
+        if (cpIdx !== undefined) {
+          objs.clear();
+          for (const [k, v] of replaySlice(cpIdx)) {
+            objs.set(k, v);
+          }
+        }
+      }
+      // checkpoint.create: no-op for board state
+    }
+    return objs;
+  }
+
+  const objects = replaySlice(ops.length);
+  return [...objects.values()].sort((a, b) => a.zIndex - b.zIndex);
 }
 
 function exceededRateLimit(context: ConnectionContext) {
@@ -235,6 +235,44 @@ export async function buildApp(options: BuildAppOptions = {}) {
     );
   });
 
+  app.get("/api/boards/:boardId/checkpoints", async (request, reply) => {
+    const params = request.params as { boardId: string };
+    const authorization = request.headers.authorization;
+    const token = authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+
+    if (!token) {
+      return reply
+        .status(401)
+        .send(createServerError("unauthorized", "Missing token.", false));
+    }
+
+    const verified = await verifyBoardToken(tokenSecret, token).catch(
+      () => null,
+    );
+    if (!verified || verified.boardId !== params.boardId) {
+      return reply
+        .status(403)
+        .send(createServerError("unauthorized", "Invalid token.", false));
+    }
+
+    const ops = await store.getOps(params.boardId);
+    const checkpoints = ops
+      .filter((op) => op.opType === "checkpoint.create")
+      .map((op) => {
+        const payload = op.payload as { id: string; name: string };
+        return {
+          id: payload.id,
+          name: payload.name,
+          serverSeq: op.serverSeq,
+          createdAt: op.createdAt,
+        };
+      });
+
+    return reply.send({ checkpoints });
+  });
+
   app.get(
     "/ws/boards/:boardId",
     { websocket: true },
@@ -357,6 +395,19 @@ export async function buildApp(options: BuildAppOptions = {}) {
         const canonical = await store.appendOperation(op);
         for (const peer of room) {
           sendJson(peer.socket, canonical);
+        }
+
+        if (canonical.opType === "checkpoint.restore") {
+          const allOps = await store.getOps(canonical.boardId);
+          const resetMsg = {
+            type: "server.snapshot_reset" as const,
+            boardId: canonical.boardId,
+            serverSeq: canonical.serverSeq,
+            snapshot: snapshotFromOps(allOps),
+          };
+          for (const peer of room) {
+            sendJson(peer.socket, resetMsg);
+          }
         }
       });
 
