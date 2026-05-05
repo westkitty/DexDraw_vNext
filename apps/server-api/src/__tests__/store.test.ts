@@ -16,6 +16,7 @@ describe("store appendOperation", () => {
     await rm(dataDir, { recursive: true, force: true });
   });
 
+  // PGlite serialises concurrent writes; allow extra time on slow machines
   it("assigns unique server sequences for concurrent appends", async () => {
     const store = await createStore(dataDir);
     const board = await store.createBoard({
@@ -85,7 +86,7 @@ describe("store appendOperation", () => {
     expect(persisted.map((op) => op.serverSeq)).toEqual([1, 2]);
 
     await store.close();
-  });
+  }, 60_000);
 });
 
 describe("store appendOperation — boardId scoping", () => {
