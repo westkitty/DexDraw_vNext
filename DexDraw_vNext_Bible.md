@@ -1079,3 +1079,57 @@ pnpm lint        # 0 errors
 | Hash | Message |
 |------|----------|
 | `6740332` | fix: stabilize store concurrency and document architecture roadmap |
+
+## Entry 16 — PNG Export Content Cropping (2026-05-06)
+
+### Session Goal
+
+Wire the existing `boundsFromBoardObjects` helper into PNG export so exported PNGs crop to actual board content instead of always rendering the full 1600×900 board.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/client-web/src/lib/export.ts` | Added `computeCropViewBox(objects, options)` pure helper. Clones SVG, rewrites its `viewBox` attribute to the content bounds, and returns `{ viewBox, width, height }`. Updated `exportSvgToPng` to accept optional `objects?: BoardObject[]` and `options?: { padding?: number; cropToContent?: boolean }` params. Default behavior (no args) is unchanged (1600×900). |
+| `apps/client-web/src/components/BoardPage.tsx` | `handleExportPng` now passes `objects` and `{ cropToContent: true, padding: 32 }` to `exportSvgToPng`. |
+| `apps/client-web/src/__tests__/export.test.ts` | Added 9 `computeCropViewBox` unit tests: null returns for missing/empty/non-crop args, correct viewBox + dimensions for default padding (32), custom padding, zero padding, multi-object union, and minimum 1×1 canvas clamp. |
+
+### Technical Approach
+
+The SVG canvas has a fixed `viewBox="0 0 1600 900"`. Board objects live in that coordinate space. To crop the PNG:
+
+1. Clone the SVG element (avoids mutating the live DOM).
+2. Set `viewBox` to `"${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}"` — the SVG renderer uses this to define what region to paint.
+3. Set canvas dimensions to `bounds.width × bounds.height` (integer, minimum 1).
+4. Draw the full SVG image onto that smaller canvas — the viewBox clipping does the crop natively.
+
+The `computeCropViewBox` helper is exported as a pure function so it can be unit-tested without jsdom or browser mocks (no DOM APIs used).
+
+### Decisions
+
+1. **Backward-compatible API** — `exportSvgToPng(svg, filename)` (two-arg form) retains its old 1600×900 behaviour. Callers that do not pass `objects` / `options` are unaffected.
+2. **Default padding 32** — Matches the call site. Avoids strokes being clipped at the edge of their bounding box (stroke half-width is at most a few px).
+3. **Pure helper for testability** — No jsdom in the client-web test environment. Extracting `computeCropViewBox` as a pure function keeps the crop logic cheap to test.
+4. **Empty board guard** — `boundsFromBoardObjects([])` returns `null`, which `computeCropViewBox` propagates as `null`, causing `exportSvgToPng` to fall back to the full 1600×900 render. The existing `handleExportPng` guard (`objects.length === 0 → return`) means this path is never reached in practice.
+5. **No PDF/Markdown changes** — Out of scope per session instructions.
+
+### Deferred
+
+- Minimum output resolution: currently 1:1 SVG unit → pixel. A very small drawing (e.g., 30×30 SVG units) produces a small PNG. Could add a scale option (`minWidth`) later.
+- Text object intrinsic size: text objects are still treated as degenerate points in `boundsFromBoardObjects`. Real text renders wider than zero; the padding of 32 mitigates visible clipping in practice.
+
+### Commands Run (Gates)
+
+```
+pnpm --filter @dexdraw/client-web test  # 44/44 ✓
+pnpm typecheck                          # 0 errors
+pnpm test                               # 57/57 ✓ (44 client + 13 server)
+pnpm build                              # pass
+pnpm lint                               # 0 errors
+```
+
+### Commit Hashes (Entry 16 session)
+
+| Hash | Message |
+|------|----------|
+| `5670f7d` | feat: crop PNG export to board content |
