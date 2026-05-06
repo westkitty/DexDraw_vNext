@@ -106,6 +106,27 @@ export function exportMarkdown(objects: BoardObject[], filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Computes the SVG viewBox string and canvas dimensions for a content-cropped
+ * PNG export.  Returns `null` when no crop should be applied (fall back to the
+ * default 1600×900 full-board render).
+ *
+ * Exported so it can be unit-tested without browser APIs.
+ */
+export function computeCropViewBox(
+  objects: BoardObject[] | undefined,
+  options: { padding?: number; cropToContent?: boolean } | undefined,
+): { viewBox: string; width: number; height: number } | null {
+  if (!options?.cropToContent || !objects?.length) return null;
+  const bounds = boundsFromBoardObjects(objects, options.padding ?? 32);
+  if (!bounds) return null;
+  return {
+    viewBox: `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,
+    width: Math.max(1, Math.round(bounds.width)),
+    height: Math.max(1, Math.round(bounds.height)),
+  };
+}
+
 export function exportToPdf(svgEl: SVGSVGElement, filename: string): void {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return;
@@ -116,9 +137,27 @@ export function exportToPdf(svgEl: SVGSVGElement, filename: string): void {
   printWindow.document.body.appendChild(clone);
 }
 
-export async function exportSvgToPng(svg: SVGSVGElement, filename: string) {
+export async function exportSvgToPng(
+  svg: SVGSVGElement,
+  filename: string,
+  objects?: BoardObject[],
+  options?: { padding?: number; cropToContent?: boolean },
+) {
+  const crop = computeCropViewBox(objects, options);
+
+  // Clone the SVG so we can adjust its viewBox without mutating the live DOM.
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  let canvasWidth = 1600;
+  let canvasHeight = 900;
+
+  if (crop) {
+    clone.setAttribute("viewBox", crop.viewBox);
+    canvasWidth = crop.width;
+    canvasHeight = crop.height;
+  }
+
   const serializer = new XMLSerializer();
-  const svgMarkup = serializer.serializeToString(svg);
+  const svgMarkup = serializer.serializeToString(clone);
   const svgBlob = new Blob([svgMarkup], {
     type: "image/svg+xml;charset=utf-8",
   });
@@ -135,8 +174,8 @@ export async function exportSvgToPng(svg: SVGSVGElement, filename: string) {
     await loaded;
 
     const canvas = document.createElement("canvas");
-    canvas.width = 1600;
-    canvas.height = 900;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
     const context = canvas.getContext("2d");
     if (!context) {
       throw new Error("Canvas export context unavailable.");

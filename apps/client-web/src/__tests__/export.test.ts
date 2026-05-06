@@ -1,6 +1,10 @@
 import type { BoardObject } from "@dexdraw/shared-protocol";
 import { describe, expect, it } from "vitest";
-import { boardToMarkdown, boundsFromBoardObjects } from "../lib/export";
+import {
+  boardToMarkdown,
+  boundsFromBoardObjects,
+  computeCropViewBox,
+} from "../lib/export";
 
 const BASE = {
   createdBy: "test",
@@ -175,5 +179,85 @@ describe("boundsFromBoardObjects", () => {
     const b = boundsFromBoardObjects([ELLIPSE_A], 5);
     // base: x=100, y=70, w=100, h=60; padding 5 → x=95, y=65, w=110, h=70
     expect(b).toEqual({ x: 95, y: 65, width: 110, height: 70 });
+  });
+});
+
+describe("computeCropViewBox", () => {
+  it("returns null when no objects are provided", () => {
+    expect(computeCropViewBox(undefined, { cropToContent: true })).toBeNull();
+  });
+
+  it("returns null when cropToContent is false", () => {
+    expect(computeCropViewBox([RECT_A], { cropToContent: false })).toBeNull();
+  });
+
+  it("returns null when cropToContent is not set", () => {
+    expect(computeCropViewBox([RECT_A], undefined)).toBeNull();
+  });
+
+  it("returns null for an empty object array (safe fallback)", () => {
+    expect(computeCropViewBox([], { cropToContent: true })).toBeNull();
+  });
+
+  it("returns correct viewBox and dimensions for a rectangle (default padding 32)", () => {
+    // RECT_A: x=10, y=10, w=100, h=50
+    // with padding 32: x=-22, y=-22, w=164, h=114
+    const result = computeCropViewBox([RECT_A], { cropToContent: true });
+    expect(result).toEqual({
+      viewBox: "-22 -22 164 114",
+      width: 164,
+      height: 114,
+    });
+  });
+
+  it("applies custom padding", () => {
+    // RECT_A base: x=10, y=10, w=100, h=50; padding 10 → x=0, y=0, w=120, h=70
+    const result = computeCropViewBox([RECT_A], {
+      cropToContent: true,
+      padding: 10,
+    });
+    expect(result).toEqual({
+      viewBox: "0 0 120 70",
+      width: 120,
+      height: 70,
+    });
+  });
+
+  it("zero padding gives exact content bounds", () => {
+    // RECT_A: x=10, y=10, w=100, h=50
+    const result = computeCropViewBox([RECT_A], {
+      cropToContent: true,
+      padding: 0,
+    });
+    expect(result).toEqual({
+      viewBox: "10 10 100 50",
+      width: 100,
+      height: 50,
+    });
+  });
+
+  it("unions multiple objects before computing viewBox", () => {
+    // STROKE_A: 0..10 × 0..10; RECT_A: 10..110 × 10..60
+    // union (no padding): x=0, y=0, w=110, h=60
+    const result = computeCropViewBox([STROKE_A, RECT_A], {
+      cropToContent: true,
+      padding: 0,
+    });
+    expect(result).toEqual({
+      viewBox: "0 0 110 60",
+      width: 110,
+      height: 60,
+    });
+  });
+
+  it("clamps canvas dimensions to at least 1×1", () => {
+    // TEXT_A is a degenerate point (width=0, height=0); with padding=0 → 0×0 → clamp to 1×1
+    const result = computeCropViewBox([TEXT_A], {
+      cropToContent: true,
+      padding: 0,
+    });
+    expect(result).not.toBeNull();
+    expect(result?.width).toBeGreaterThanOrEqual(1);
+    expect(result?.height).toBeGreaterThanOrEqual(1);
   });
 });

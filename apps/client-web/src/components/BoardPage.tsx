@@ -916,7 +916,10 @@ export function BoardPage() {
 
   async function handleExportPng() {
     if (!canvasRef.current || objects.length === 0) return;
-    await exportSvgToPng(canvasRef.current, `dexdraw-${boardId}.png`);
+    await exportSvgToPng(canvasRef.current, `dexdraw-${boardId}.png`, objects, {
+      cropToContent: true,
+      padding: 32,
+    });
   }
 
   function handleExportMarkdown() {
