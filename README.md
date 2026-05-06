@@ -131,6 +131,8 @@ See `.env.example`. The server reads:
 
 ## Roadmap (future — not in this repo)
 
+See [`docs/architecture-roadmap.md`](docs/architecture-roadmap.md) for the full architecture overview and future options with tradeoff notes.
+
 The following are architecture decisions deferred to future milestones. They are **not implemented** here:
 
 - Yjs / CRDT-based conflict resolution

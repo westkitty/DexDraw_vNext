@@ -85,6 +85,19 @@ export async function createStore(
 
   const SYSTEM_CLIENT_ID = "00000000-0000-4000-8000-000000000000";
 
+  // PGlite is single-threaded. Serialise appendOperation calls at the JS layer
+  // so concurrent callers never race on serverSeq, avoiding DB constraint
+  // conflicts and the expensive retry loop.
+  let appendLock: Promise<void> = Promise.resolve();
+  function serialized<T>(fn: () => Promise<T>): Promise<T> {
+    const result = appendLock.then(fn);
+    appendLock = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
   return {
     async createBoard(input: {
       name: string;
@@ -155,85 +168,91 @@ export async function createStore(
     },
 
     async appendOperation(op: ClientOpEnvelope): Promise<ServerOpEnvelope> {
-      const existing = await db
-        .select()
-        .from(operations)
-        .where(
-          and(eq(operations.boardId, op.boardId), eq(operations.opId, op.opId)),
-        )
-        .limit(1);
-
-      if (existing[0]) {
-        return toServerEnvelope(existing[0]);
-      }
-
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        const latest = await db
-          .select({ serverSeq: operations.serverSeq })
+      return serialized(async () => {
+        const existing = await db
+          .select()
           .from(operations)
-          .where(eq(operations.boardId, op.boardId))
-          .orderBy(desc(operations.serverSeq))
+          .where(
+            and(
+              eq(operations.boardId, op.boardId),
+              eq(operations.opId, op.opId),
+            ),
+          )
           .limit(1);
 
-        const serverSeq = (latest[0]?.serverSeq ?? 0) + 1;
-        const createdAt = new Date().toISOString();
-
-        try {
-          await db.insert(operations).values({
-            boardId: op.boardId,
-            serverSeq,
-            clientId: op.clientId,
-            clientSeq: op.clientSeq,
-            opId: op.opId,
-            opType: op.opType,
-            payload: op.payload,
-            createdAt,
-          });
-
-          return {
-            type: "server.op",
-            boardId: op.boardId,
-            serverSeq,
-            clientId: op.clientId,
-            clientSeq: op.clientSeq,
-            opId: op.opId,
-            opType: op.opType,
-            payload: op.payload,
-            createdAt,
-          };
-        } catch (error) {
-          const constraint =
-            error instanceof Error && "cause" in error
-              ? (error.cause as { constraint?: string } | undefined)?.constraint
-              : undefined;
-
-          if (constraint === "board_op_unique") {
-            const duplicate = await db
-              .select()
-              .from(operations)
-              .where(
-                and(
-                  eq(operations.boardId, op.boardId),
-                  eq(operations.opId, op.opId),
-                ),
-              )
-              .limit(1);
-            if (duplicate[0]) {
-              return toServerEnvelope(duplicate[0]);
-            }
-          }
-
-          if (constraint === "board_seq_unique") {
-            continue;
-          }
-
-          throw error;
+        if (existing[0]) {
+          return toServerEnvelope(existing[0]);
         }
-      }
 
-      throw new Error(
-        `Failed to append operation ${op.opId} after repeated server sequence conflicts.`,
-      );
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const latest = await db
+            .select({ serverSeq: operations.serverSeq })
+            .from(operations)
+            .where(eq(operations.boardId, op.boardId))
+            .orderBy(desc(operations.serverSeq))
+            .limit(1);
+
+          const serverSeq = (latest[0]?.serverSeq ?? 0) + 1;
+          const createdAt = new Date().toISOString();
+
+          try {
+            await db.insert(operations).values({
+              boardId: op.boardId,
+              serverSeq,
+              clientId: op.clientId,
+              clientSeq: op.clientSeq,
+              opId: op.opId,
+              opType: op.opType,
+              payload: op.payload,
+              createdAt,
+            });
+
+            return {
+              type: "server.op",
+              boardId: op.boardId,
+              serverSeq,
+              clientId: op.clientId,
+              clientSeq: op.clientSeq,
+              opId: op.opId,
+              opType: op.opType,
+              payload: op.payload,
+              createdAt,
+            };
+          } catch (error) {
+            const constraint =
+              error instanceof Error && "cause" in error
+                ? (error.cause as { constraint?: string } | undefined)
+                    ?.constraint
+                : undefined;
+
+            if (constraint === "board_op_unique") {
+              const duplicate = await db
+                .select()
+                .from(operations)
+                .where(
+                  and(
+                    eq(operations.boardId, op.boardId),
+                    eq(operations.opId, op.opId),
+                  ),
+                )
+                .limit(1);
+              if (duplicate[0]) {
+                return toServerEnvelope(duplicate[0]);
+              }
+            }
+
+            if (constraint === "board_seq_unique") {
+              continue;
+            }
+
+            throw error;
+          }
+        }
+
+        throw new Error(
+          `Failed to append operation ${op.opId} after repeated server sequence conflicts.`,
+        );
+      }); // end serialized
     },
 
     async close() {

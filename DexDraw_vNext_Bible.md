@@ -1016,3 +1016,66 @@ pnpm lint        # 0 errors
 | `2ad7656` | fix: read PUBLIC_CLIENT_ORIGIN env var for CORS allowlist |
 | `e092cad` | fix: reject forbidden fields (id/type/createdAt/createdBy) in object.update patch |
 | `4da3020` | docs: security tradeoffs in README and Bible Entry 14 |
+
+## Entry 15 — Concurrency Stabilisation + Architecture Roadmap (2026-05-06)
+
+### Session Goal
+
+Autonomous overnight pass (user sleeping). Four tasks:
+1. Investigate and fix PGlite concurrent `appendOperation` timeout.
+2. Add `boundsFromBoardObjects` export helper and unit tests.
+3. Create `docs/architecture-roadmap.md` (current arch + future options).
+4. Add README cross-link to the roadmap doc.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/server-api/src/db/store.ts` | Added JS-level Promise-chain mutex (`serialized()`) wrapping `appendOperation`. Two concurrent calls no longer race on DB `serverSeq`; no DB constraint conflicts, no retries in the happy path. Retry loop retained as safety net. |
+| `apps/server-api/src/__tests__/store.test.ts` | Removed all per-test timeout overrides (now rely on global config). Added idempotency test: same opId fired twice concurrently → both return the same `serverSeq`, only one row persisted. |
+| `apps/server-api/src/__tests__/server.test.ts` | Removed all per-test timeout overrides (now rely on global config). |
+| `apps/server-api/vitest.config.ts` | New file. Sets global `testTimeout: 40_000` ms so that whichever server-api test bears the PGlite cold-start cost (~27-31s) cannot time out. |
+| `apps/client-web/src/lib/export.ts` | Added `Bounds` type and `boundsFromBoardObjects(objects, padding?)` pure function. Covers: stroke (point cloud), rectangle, ellipse, text (degenerate point), note. Returns `null` for empty array. |
+| `apps/client-web/src/__tests__/export.test.ts` | Added 11 `boundsFromBoardObjects` tests: null for empty, each object type, multi-type union, symmetric padding expansion. |
+| `docs/architecture-roadmap.md` | New file. Current architecture table (React+SVG, Fastify+WebSocket, PGlite+Drizzle, Zod, JWT). Future options section covering 10 potential paths, each with tradeoff note and explicit "not implemented" label. |
+| `README.md` | Added one-line cross-link in the Roadmap section pointing to `docs/architecture-roadmap.md`. |
+
+### Root Cause: PGlite Concurrency
+
+The original optimistic loop read the latest `serverSeq`, then inserted with `serverSeq + 1`. Two concurrent `appendOperation` calls both read seq=0 and both tried to insert seq=1. The loser hit the `board_seq_unique` DB constraint, which triggered an expensive PGlite error-handling + retry cycle (~10-15s per retry). With two concurrent ops, the wall time ballooned to 50-70s.
+
+Fix: a JS-level Promise-chain mutex (`let appendLock = Promise.resolve(); serialized(fn)`) inside the `createStore` closure serialises all `appendOperation` calls at the JS layer. No concurrent inserts reach the DB, so no constraint conflicts, no retries. Each test now completes in the time it takes for PGlite to process N sequential inserts.
+
+### Decisions
+
+1. **Mutex inside closure, not module-level** — Each `createStore()` call gets its own `appendLock`. Tests that create separate stores remain fully isolated; no cross-test leakage.
+2. **Retry loop retained** — The 5-attempt retry in `appendOperation` is kept as a safety net for any edge case that bypasses the mutex (e.g. future refactoring). It costs nothing in the happy path.
+3. **Timeout bump, not skip** — Rather than skipping slow tests, timeouts were increased to match observed PGlite cold-start latency on this machine. Tests still assert correctness.
+4. **`boundsFromBoardObjects` — text as degenerate point** — The `text` object type has no `width`/`height` in the protocol schema. Treating it as a zero-size point at `(x, y)` is correct and matches future SVG `getBBox()` behaviour.
+5. **Architecture doc: no future paths pre-implemented** — The roadmap file documents future options with explicit "not implemented" labels and evidence-of-need requirements. This avoids speculative complexity.
+
+### Bugs Fixed
+
+- PGlite concurrent `appendOperation` timeout (store test previously took >60s, frequently timed out).
+- Cold-PGlite first-test timeout in `server.test.ts` (tests 1-3 were consistently exceeding their 15/15/20s limits).
+
+### Deferred
+
+- `exportSvgToPng` still uses hardcoded 1600×900 canvas. `boundsFromBoardObjects` is the pure helper needed to make it dynamic; the wiring into the export UI is a follow-on task.
+- Camera matrix / infinite canvas (tracked in roadmap as future option).
+- Spatial indexing (R-tree) for hit-test at 10k+ objects (roadmap).
+
+### Commands Run (Gates)
+
+```
+pnpm typecheck   # 0 errors
+pnpm test        # all passed (35 client-web + 13 server-api = 48 total)
+pnpm build       # pass
+pnpm lint        # 0 errors
+```
+
+### Commit Hashes (Entry 15 session)
+
+| Hash | Message |
+|------|----------|
+| TBD | fix: stabilize store concurrency and document architecture roadmap |

@@ -61,7 +61,7 @@ describe("server api", () => {
     });
 
     await app.close();
-  }, 15_000);
+  });
 
   it("joins a board with the share code and returns an edit token", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
@@ -92,7 +92,7 @@ describe("server api", () => {
     });
 
     await app.close();
-  }, 15_000);
+  });
 
   it("persists a stroke sent through websocket and returns it in snapshot", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
@@ -170,7 +170,7 @@ describe("server api", () => {
 
     socket.close();
     await app.close();
-  }, 20_000);
+  });
 
   it("rejects draw attempts from a view token", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
@@ -243,7 +243,7 @@ describe("server api", () => {
 
     socket.close();
     await app.close();
-  }, 20_000);
+  });
 
   it("lists checkpoints via REST endpoint", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
@@ -310,7 +310,7 @@ describe("server api", () => {
 
     ws.close();
     await app.close();
-  }, 20_000);
+  });
 
   it("lists canonical ops after a given server sequence", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
@@ -411,7 +411,7 @@ describe("server api", () => {
 
     ws.close();
     await app.close();
-  }, 20_000);
+  });
 
   it("snapshot_reset is broadcast on checkpoint.restore", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
@@ -543,7 +543,7 @@ describe("server api", () => {
 
     ws.close();
     await app.close();
-  }, 25_000);
+  });
 
   it("rejects object.update patches that attempt to overwrite id or type", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
@@ -606,7 +606,7 @@ describe("server api", () => {
 
     ws.close();
     await app.close();
-  }, 20_000);
+  });
 
   it("restricts CORS to the configured public client origin", async () => {
     const { app } = await buildApp({
@@ -628,7 +628,7 @@ describe("server api", () => {
     expect(acao).toBe("http://app.example.com");
 
     await app.close();
-  }, 15_000);
+  });
 
   it("returns valid ops for a board created from a non-blank template", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
@@ -655,5 +655,5 @@ describe("server api", () => {
     expect(() => OpsSinceResponseSchema.parse(ops.json())).not.toThrow();
 
     await app.close();
-  }, 15_000);
+  });
 });

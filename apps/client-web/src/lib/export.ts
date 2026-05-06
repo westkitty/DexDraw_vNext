@@ -1,5 +1,79 @@
 import type { BoardObject } from "@dexdraw/shared-protocol";
 
+// Axis-aligned bounding box of a set of board objects.
+export type Bounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+/**
+ * Returns the axis-aligned bounding box that encloses all objects, expanded
+ * by `padding` on every side.  Returns `null` for an empty array.
+ *
+ * Covered types: stroke (point cloud), rectangle, ellipse, text (anchor
+ * point), note (positioned box).
+ */
+export function boundsFromBoardObjects(
+  objects: BoardObject[],
+  padding = 0,
+): Bounds | null {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const obj of objects) {
+    if (obj.type === "stroke") {
+      for (const p of obj.points) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+    } else if (obj.type === "rectangle") {
+      const x2 = obj.x + obj.width;
+      const y2 = obj.y + obj.height;
+      if (obj.x < minX) minX = obj.x;
+      if (obj.y < minY) minY = obj.y;
+      if (x2 > maxX) maxX = x2;
+      if (y2 > maxY) maxY = y2;
+    } else if (obj.type === "ellipse") {
+      const x1 = obj.cx - obj.rx;
+      const y1 = obj.cy - obj.ry;
+      const x2 = obj.cx + obj.rx;
+      const y2 = obj.cy + obj.ry;
+      if (x1 < minX) minX = x1;
+      if (y1 < minY) minY = y1;
+      if (x2 > maxX) maxX = x2;
+      if (y2 > maxY) maxY = y2;
+    } else if (obj.type === "text") {
+      // Text has no explicit size in the schema; treat as a point.
+      if (obj.x < minX) minX = obj.x;
+      if (obj.y < minY) minY = obj.y;
+      if (obj.x > maxX) maxX = obj.x;
+      if (obj.y > maxY) maxY = obj.y;
+    } else if (obj.type === "note") {
+      const x2 = obj.x + obj.width;
+      const y2 = obj.y + obj.height;
+      if (obj.x < minX) minX = obj.x;
+      if (obj.y < minY) minY = obj.y;
+      if (x2 > maxX) maxX = x2;
+      if (y2 > maxY) maxY = y2;
+    }
+  }
+
+  if (!Number.isFinite(minX)) return null;
+
+  return {
+    x: minX - padding,
+    y: minY - padding,
+    width: maxX - minX + padding * 2,
+    height: maxY - minY + padding * 2,
+  };
+}
+
 export function boardToMarkdown(objects: BoardObject[]): string {
   const sorted = [...objects].sort((a, b) => a.zIndex - b.zIndex);
   const lines: string[] = ["# DexDraw Board", ""];

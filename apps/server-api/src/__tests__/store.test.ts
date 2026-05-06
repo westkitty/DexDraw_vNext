@@ -16,7 +16,6 @@ describe("store appendOperation", () => {
     await rm(dataDir, { recursive: true, force: true });
   });
 
-  // PGlite serialises concurrent writes; allow extra time on slow machines
   it("assigns unique server sequences for concurrent appends", async () => {
     const store = await createStore(dataDir);
     const board = await store.createBoard({
@@ -86,7 +85,54 @@ describe("store appendOperation", () => {
     expect(persisted.map((op) => op.serverSeq)).toEqual([1, 2]);
 
     await store.close();
-  }, 60_000);
+  });
+
+  it("concurrent duplicate opId is idempotent (returns same serverSeq)", async () => {
+    const store = await createStore(dataDir);
+    const board = await store.createBoard({
+      name: "Idempotency Board",
+      templateId: "blank",
+      displayName: "Owner",
+      template: { id: "blank", name: "Blank", description: "", objects: [] },
+    });
+
+    const op: ClientOpEnvelope = {
+      type: "client.op",
+      boardId: board.boardId,
+      clientId: "11111111-1111-4111-8111-111111111111",
+      clientSeq: 1,
+      opId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      opType: "object.create",
+      payload: {
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        type: "text" as const,
+        x: 0,
+        y: 0,
+        text: "hi",
+        style: {},
+        createdBy: "Owner",
+        createdAt: "2026-05-05T00:00:00.000Z",
+        updatedAt: "2026-05-05T00:00:00.000Z",
+        zIndex: 0,
+      },
+      sentAt: "2026-05-05T00:00:00.000Z",
+    };
+
+    // Fire the same op twice concurrently
+    const [r1, r2] = await Promise.all([
+      store.appendOperation(op),
+      store.appendOperation(op),
+    ]);
+
+    expect(r1.serverSeq).toBe(r2.serverSeq);
+    expect(r1.opId).toBe(r2.opId);
+
+    // Only one row persisted
+    const persisted = await store.getOps(board.boardId);
+    expect(persisted).toHaveLength(1);
+
+    await store.close();
+  });
 });
 
 describe("store appendOperation — boardId scoping", () => {
