@@ -1015,3 +1015,4 @@ pnpm lint        # 0 errors
 | `5941519` | docs: add commit hash table to Bible Entry 13 |
 | `2ad7656` | fix: read PUBLIC_CLIENT_ORIGIN env var for CORS allowlist |
 | `e092cad` | fix: reject forbidden fields (id/type/createdAt/createdBy) in object.update patch |
+| `4da3020` | docs: security tradeoffs in README and Bible Entry 14 |
