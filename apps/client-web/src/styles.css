@@ -184,6 +184,40 @@ select:focus-visible {
   background: rgba(15, 118, 110, 0.14);
 }
 
+.presence-panel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.presence-count {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.14);
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f766e;
+  min-width: 28px;
+  text-align: center;
+}
+
+.presence-participant {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.06);
+  font-size: 13px;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.presence-you {
+  background: rgba(249, 115, 22, 0.12);
+  color: #c2410c;
+}
+
 .board-stage {
   position: relative;
   overflow: hidden;

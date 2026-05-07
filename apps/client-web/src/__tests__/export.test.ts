@@ -81,9 +81,14 @@ describe("boardToMarkdown", () => {
     expect(md).toContain("---");
   });
 
-  it("skips strokes and ellipses", () => {
+  it("skips strokes", () => {
     const md = boardToMarkdown([STROKE_A]);
     expect(md).not.toContain("0,0");
+  });
+
+  it("renders ellipses as an italic marker", () => {
+    const md = boardToMarkdown([ELLIPSE_A]);
+    expect(md).toContain("*(ellipse)*");
   });
 
   it("orders output by zIndex", () => {
@@ -151,28 +156,42 @@ describe("boundsFromBoardObjects", () => {
     expect(b).toEqual({ x: 200, y: 200, width: 180, height: 110 });
   });
 
-  it("computes bounds for a text object (degenerate point)", () => {
-    // TEXT_A: x=100, y=100 — no size
+  it("computes bounds for a text object with estimated size", () => {
+    // TEXT_A: x=100, y=100, text="Hello World" (11 chars), fontSize=24
+    // estimatedW = max(11 * 24 * 0.55, 24) = max(145.2, 24) = 145.2 → right ≈ 245
+    // estimatedH = 24 * 1.4 = 33.6 → bottom ≈ 134
     const b = boundsFromBoardObjects([TEXT_A]);
-    expect(b).toEqual({ x: 100, y: 100, width: 0, height: 0 });
+    expect(b).not.toBeNull();
+    expect(b?.x).toBe(100);
+    expect(b?.y).toBe(100);
+    expect(b?.width).toBeGreaterThan(0);
+    expect(b?.height).toBeGreaterThan(0);
   });
 
   it("unions bounds across multiple object types", () => {
     // RECT_A: x=10..110, y=10..60
-    // TEXT_A: x=100, y=100 (point)
-    // combined: x=10..110, y=10..100 → w=100, h=90
+    // TEXT_A: x=100, y=100, estimated right ≈ 245, bottom ≈ 134
+    // combined: x=10, y=10, right = max(110, ~245) = ~245, bottom = max(60, ~134) = ~134
     const b = boundsFromBoardObjects([RECT_A, TEXT_A]);
-    expect(b).toEqual({ x: 10, y: 10, width: 100, height: 90 });
+    expect(b).not.toBeNull();
+    expect(b?.x).toBe(10);
+    expect(b?.y).toBe(10);
+    expect(b?.width).toBeGreaterThan(100);
+    expect(b?.height).toBeGreaterThan(50);
   });
 
   it("unions stroke, ellipse, note, and text together", () => {
     // STROKE_A: 0..10 × 0..10
     // ELLIPSE_A: 100..200 × 70..130
     // NOTE_A: 200..380 × 200..310
-    // TEXT_A: 100 × 100 (point)
-    // combined: x=0..380, y=0..310 → w=380, h=310
+    // TEXT_A: 100..~245 × 100..~134 (estimated)
+    // combined: x=0, y=0, right ≥ 380, bottom ≥ 310
     const b = boundsFromBoardObjects([STROKE_A, ELLIPSE_A, NOTE_A, TEXT_A]);
-    expect(b).toEqual({ x: 0, y: 0, width: 380, height: 310 });
+    expect(b).not.toBeNull();
+    expect(b?.x).toBe(0);
+    expect(b?.y).toBe(0);
+    expect(b?.width).toBeGreaterThanOrEqual(380);
+    expect(b?.height).toBeGreaterThanOrEqual(310);
   });
 
   it("padding expands bounds symmetrically", () => {
@@ -251,8 +270,16 @@ describe("computeCropViewBox", () => {
   });
 
   it("clamps canvas dimensions to at least 1×1", () => {
-    // TEXT_A is a degenerate point (width=0, height=0); with padding=0 → 0×0 → clamp to 1×1
-    const result = computeCropViewBox([TEXT_A], {
+    // A stroke with a single point has zero-size bounds; clamp to 1×1
+    const singlePointStroke: BoardObject = {
+      ...BASE,
+      id: "00000000-0000-0000-0000-000000000099",
+      type: "stroke",
+      points: [{ x: 5, y: 5, pressure: 0.5 }],
+      zIndex: 0,
+      style: { color: "#000", width: 2 },
+    };
+    const result = computeCropViewBox([singlePointStroke], {
       cropToContent: true,
       padding: 0,
     });

@@ -49,11 +49,14 @@ export function boundsFromBoardObjects(
       if (x2 > maxX) maxX = x2;
       if (y2 > maxY) maxY = y2;
     } else if (obj.type === "text") {
-      // Text has no explicit size in the schema; treat as a point.
+      // Estimate text bounds from font-size and character count.
+      const fs = obj.style?.fontSize ?? 24;
+      const estimatedW = Math.max(obj.text.length * fs * 0.55, fs);
+      const estimatedH = fs * 1.4;
       if (obj.x < minX) minX = obj.x;
       if (obj.y < minY) minY = obj.y;
-      if (obj.x > maxX) maxX = obj.x;
-      if (obj.y > maxY) maxY = obj.y;
+      if (obj.x + estimatedW > maxX) maxX = obj.x + estimatedW;
+      if (obj.y + estimatedH > maxY) maxY = obj.y + estimatedH;
     } else if (obj.type === "note") {
       const x2 = obj.x + obj.width;
       const y2 = obj.y + obj.height;
@@ -88,8 +91,10 @@ export function boardToMarkdown(objects: BoardObject[]): string {
       lines.push("");
     } else if (obj.type === "rectangle") {
       lines.push("---", "");
+    } else if (obj.type === "ellipse") {
+      lines.push("*(ellipse)*", "");
     }
-    // strokes and ellipses: skipped
+    // strokes: intentionally skipped (no text representation)
   }
 
   return lines.join("\n");
@@ -133,8 +138,14 @@ export function exportToPdf(svgEl: SVGSVGElement, filename: string): void {
   const titleEl = printWindow.document.createElement("title");
   titleEl.textContent = filename;
   printWindow.document.head.appendChild(titleEl);
+  const style = printWindow.document.createElement("style");
+  style.textContent =
+    "body{margin:0;background:#fff}svg{width:100vw;height:100vh}@media print{body{margin:0}}";
+  printWindow.document.head.appendChild(style);
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
   printWindow.document.body.appendChild(clone);
+  printWindow.focus();
+  printWindow.print();
 }
 
 export async function exportSvgToPng(

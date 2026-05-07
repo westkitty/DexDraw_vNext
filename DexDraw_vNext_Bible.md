@@ -1327,3 +1327,115 @@ Possible next tranches:
 2. **Edge resize handles** — N/S/E/W mid-edge handles.
 3. **Richer export** — multi-page PDF, SVG export.
 4. **Fix overlapping-rect drawing** — Objects intercept `pointerdown` with `stopPropagation` even when not in select mode; drawing tools cannot start a shape on top of existing objects.
+
+---
+
+## Entry 20 — Pointer-Event Routing, Presence UI, Selection Hardening, Export Polish, Snapshot Safety
+
+**Session Start Sub-Entry — 2026-05-07**
+
+### Repo Snapshot
+
+- Path: `/Users/andrew/Library/Mobile Documents/com~apple~CloudDocs/Projects/DexDraw`
+- Remote: `git@github.com:westkitty/DexDraw_vNext.git`
+- Branch: `main`, HEAD: `dd60d0b`
+- State: clean
+- Last completed: Entry 19 — arrange / duplicate / keyboard nudge / selection polish (38/38 e2e, 112 unit tests)
+
+### Tranche Scope
+
+1. **Priority 1** — Fix pointer-event routing: drawing tools blocked when pointerdown starts over an existing SVG object (root cause: `e.stopPropagation()` called unconditionally in `makeObjectHandlers`).
+2. **Priority 2** — Richer presence UI: participant panel, cursor/laser labels, participant count.
+3. **Priority 3** — Selection hardening: Escape key, stale selection after snapshot/reconnect, selection count invariants.
+4. **Priority 4** — Export polish: Markdown with all object types, PNG crop correctness, PDF smoke.
+5. **Priority 5** — Checkpoint/undo/replay safety: clear stale selections after snapshot reset.
+
+### Next Step
+
+Begin Priority 1 — fix `BoardCanvas.tsx` `makeObjectHandlers` to only call `e.stopPropagation()` when `activeTool === "select"`.
+
+### Sub-Entry 20.1 — Priority 1: Pointer-Event Routing Fix
+
+**Timestamp:** 2026-05-07, session in progress
+
+**Bug Reproduced:** Drawing tools (rectangle, ellipse, pen, text, note) failed to create objects when pointerdown started over an existing SVG element. Root cause confirmed: `makeObjectHandlers` in `BoardCanvas.tsx` called `e.stopPropagation()` unconditionally before delegating to `onObjectPointerDown`. The SVG-level `handlePointerDown` was never reached.
+
+**Fix:** Added `activeTool?: string` prop to `BoardCanvas`. In `makeObjectHandlers`, `stopPropagation` is now only called when `activeTool === "select"`. For all other tools, the event bubbles to the SVG handler normally.
+
+**Files Changed:**
+- `apps/client-web/src/components/BoardCanvas.tsx` — added `activeTool` prop, conditional stopPropagation
+- `apps/client-web/src/components/BoardPage.tsx` — passes `activeTool={tool}` to BoardCanvas
+- `tests/e2e/pointer-event-routing.spec.ts` — NEW: 8 tests covering all drawing tools, select+drag, resize, marquee
+
+**Verification:** `pnpm typecheck` pass, `pnpm exec playwright test tests/e2e/pointer-event-routing.spec.ts` — 8/8 pass
+
+**Next:** Priority 2 — Richer presence UI
+
+### Sub-Entry 20.2 — Priority 2: Richer Presence UI
+
+**Timestamp:** 2026-05-07, session in progress
+
+**What Changed:**
+1. `BoardCanvas.tsx` — Added `data-testid="remote-cursor-label"` to cursor display name text. Added laser label (badge + text) with `data-testid="remote-laser-label"`.
+2. `PresencePanel.tsx` — NEW component showing participant count (`presence-count`), local user ("You"), and remote users from `remotePresence` state. Uses `data-testid="presence-panel"`, `presence-count`, `presence-participant`.
+3. `BoardPage.tsx` — Imported and rendered `PresencePanel` in the meta-group section of the header.
+4. `styles.css` — Added `.presence-panel`, `.presence-count`, `.presence-participant`, `.presence-you` styles.
+
+**Decisions:**
+- Presence panel shows only currently active remote clients (those who sent presence in last 4 seconds). No persistent roster.
+- "You" label always shown regardless of cursor activity.
+
+**Files Changed:**
+- `apps/client-web/src/components/BoardCanvas.tsx`
+- `apps/client-web/src/components/PresencePanel.tsx` (new)
+- `apps/client-web/src/components/BoardPage.tsx`
+- `apps/client-web/src/styles.css`
+- `tests/e2e/presence.spec.ts` (new — 6 tests)
+
+**Verification:** `pnpm typecheck` pass, `pnpm exec playwright test tests/e2e/presence.spec.ts` — 6/6 pass
+
+**Next:** Priority 3 — Selection and object manipulation hardening
+
+---
+
+### Entry 20.3 — Priority 3: Selection and Object Manipulation Hardening
+
+**Date:** 2026-05-07
+
+**What was done:**
+
+**Self-echo skip fix (`BoardPage.tsx`):**
+- Added `pendingSeqsRef: useRef<Set<number>>(new Set())` to track in-flight client ops
+- `sendRaw` now adds each `clientSeq` to the set before sending
+- `server.op` handler checks `isSelfEcho` (clientId matches AND clientSeq in pending set) and skips `setObjects` re-application for self-echoed ops — prevents undo from being overridden by a racing server echo
+- `server.snapshot_reset` clears the pending set
+
+**Auto-select first checkpoint:**
+- `useEffect` in `BoardPage` auto-sets `selectedCheckpointId` to `checkpoints[0].id` when the list transitions from empty → non-empty, enabling the Restore button without requiring manual dropdown selection
+
+**Toolbar testid:**
+- Added `data-testid="restore-button"` to the Restore button in `Toolbar.tsx`
+
+**New test file: `tests/e2e/selection-hardening.spec.ts` (11 tests, all passing):**
+| Test | Covers |
+|------|--------|
+| Escape clears selection | Global Escape key deselects |
+| Escape cancels active marquee | Escape during drag aborts marquee |
+| Escape during inline editing cancels edit | Editor handles its own Escape |
+| Clicking empty canvas clears selection | Pointer-down on empty clears |
+| Selection count updates after duplicate | Count tracks new copies |
+| Selection count clears after delete | Delete removes selection UI |
+| Selection count stable after undo/redo | Undo/redo doesn't ghost-select |
+| Checkpoint restore clears selection for removed objects | Stale IDs filtered out |
+| Duplicate after marquee creates expected group | Multi-select duplicate batch |
+| Nudge after marquee moves group and undo restores | Self-echo fix enables stable undo |
+| Resize handles not shown for multi-select | Handles hidden for >1 selected |
+
+**Files modified:**
+- `apps/client-web/src/components/BoardPage.tsx` (self-echo fix, auto-select checkpoint)
+- `apps/client-web/src/components/Toolbar.tsx` (restore-button testid)
+- `tests/e2e/selection-hardening.spec.ts` (new — 11 tests)
+
+**Verification:** All 11 selection-hardening tests pass. Presence (6) and pointer-event-routing (8) still pass. No regressions.
+
+**Next:** Priority 4 — Export polish and correctness

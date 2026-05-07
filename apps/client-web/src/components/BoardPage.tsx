@@ -39,6 +39,7 @@ import {
 } from "../lib/session";
 import { BoardCanvas } from "./BoardCanvas";
 import { InlineEditor } from "./InlineEditor";
+import { PresencePanel } from "./PresencePanel";
 import { type Tool, Toolbar } from "./Toolbar";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
@@ -80,6 +81,7 @@ export function BoardPage() {
 
   const socketRef = useRef<WebSocket | null>(null);
   const clientSeqRef = useRef(0);
+  const pendingSeqsRef = useRef<Set<number>>(new Set());
   const serverSeqRef = useRef(0);
   const strokeRef = useRef<Point[]>([]);
   const shapeStartRef = useRef<Point | null>(null);
@@ -106,6 +108,23 @@ export function BoardPage() {
 
   useEffect(() => {
     objectsRef.current = objects;
+  }, [objects]);
+
+  // Auto-select the first checkpoint when one becomes available.
+  useEffect(() => {
+    if (checkpoints.length > 0 && !selectedCheckpointId) {
+      setSelectedCheckpointId(checkpoints[0].id);
+    }
+  }, [checkpoints, selectedCheckpointId]);
+
+  // Remove stale selected IDs whenever the object list changes (snapshot reset,
+  // checkpoint restore, remote delete, reconnect replay).
+  useEffect(() => {
+    const ids = new Set(objects.map((o) => o.id));
+    setSelectedObjectIds((prev) => {
+      const next = prev.filter((id) => ids.has(id));
+      return next.length === prev.length ? prev : next;
+    });
   }, [objects]);
 
   function moveObject(
@@ -140,6 +159,7 @@ export function BoardPage() {
     return object;
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: clientId is a stable UUID generated once at mount; it never changes so omitting it from deps is correct
   useEffect(() => {
     if (!boardId || !token) {
       setStatus("disconnected");
@@ -182,6 +202,7 @@ export function BoardPage() {
       const data = (await resp.json()) as OpsSinceResponse;
       if (data.ops.some((op) => op.opType === "checkpoint.restore")) {
         setObjects(fallbackSnapshot);
+        setSelectedObjectIds([]);
         return;
       }
 
@@ -263,11 +284,21 @@ export function BoardPage() {
 
         if (message.type === "server.snapshot_reset") {
           serverSeqRef.current = message.serverSeq;
+          pendingSeqsRef.current.clear();
           setObjects(message.snapshot);
           undoStackRef.current = [];
           redoStackRef.current = [];
           setUndoCount(0);
           setRedoCount(0);
+          setSelectedObjectIds([]);
+          setEditingObjectId(null);
+          isMarqueeingRef.current = false;
+          marqueeRectRef.current = null;
+          setMarquee(null);
+          isDraggingRef.current = false;
+          dragStartPosRef.current = null;
+          dragInitialObjectsRef.current = [];
+          isResizingRef.current = false;
           return;
         }
 
@@ -276,6 +307,14 @@ export function BoardPage() {
             serverSeqRef.current,
             message.serverSeq,
           );
+          // Skip self-echoes: ops we sent ourselves were already applied
+          // optimistically — re-applying them would override local undo/redo.
+          const isSelfEcho =
+            message.clientId === clientId &&
+            pendingSeqsRef.current.has(message.clientSeq);
+          if (isSelfEcho) {
+            pendingSeqsRef.current.delete(message.clientSeq);
+          }
           if (message.opType === "checkpoint.create") {
             const payload = message.payload as { id: string; name: string };
             setCheckpoints((prev) => [
@@ -287,7 +326,7 @@ export function BoardPage() {
                 createdAt: message.createdAt,
               },
             ]);
-          } else {
+          } else if (!isSelfEcho) {
             setObjects((current) =>
               applyCanonicalOperation(current, message as ServerOpEnvelope),
             );
@@ -401,12 +440,14 @@ export function BoardPage() {
       return;
     }
     clientSeqRef.current += 1;
+    const seq = clientSeqRef.current;
+    pendingSeqsRef.current.add(seq);
     socketRef.current.send(
       JSON.stringify({
         type: "client.op",
         boardId,
         clientId,
-        clientSeq: clientSeqRef.current,
+        clientSeq: seq,
         opId: crypto.randomUUID(),
         opType,
         payload,
@@ -563,6 +604,30 @@ export function BoardPage() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (editingObjectId) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSelectedObjectIds([]);
+        if (isMarqueeingRef.current) {
+          isMarqueeingRef.current = false;
+          marqueeStartRef.current = null;
+          marqueeRectRef.current = null;
+          setMarquee(null);
+        }
+        if (isDraggingRef.current) {
+          isDraggingRef.current = false;
+          dragStartPosRef.current = null;
+          dragInitialObjectsRef.current = [];
+        }
+        if (isResizingRef.current) {
+          isResizingRef.current = false;
+          resizeHandleRef.current = null;
+          resizeInitialBoundsRef.current = null;
+          resizeInitialObjectRef.current = null;
+          resizeStartPosRef.current = null;
+          resizeCurrentBoundsRef.current = null;
+        }
+        return;
+      }
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
         selectedObjectIds.length > 0 &&
@@ -822,6 +887,23 @@ export function BoardPage() {
     if (editingObjectId) return;
 
     const point = pointerToSvgPoint(event);
+
+    // For click-to-place tools (text, note): prevent creating a duplicate when
+    // the pointer-down lands on an existing object of the SAME type (e.g.
+    // double-clicking a note to edit would otherwise create two extra notes).
+    // Clicking on a DIFFERENT type of object is still allowed so that text/
+    // note labels can be placed on top of shapes.
+    if (tool === "text" || tool === "note") {
+      const sameTypeTestId =
+        tool === "text" ? "text-object" : "note-object";
+      if (
+        (event.target as Element).closest(
+          `[data-testid="${sameTypeTestId}"]`,
+        )
+      ) {
+        return;
+      }
+    }
 
     if (tool === "select") {
       const hit = hitTestObjects(objectsRef.current, point.x, point.y);
@@ -1244,6 +1326,8 @@ export function BoardPage() {
 
   function handleRestoreCheckpoint() {
     if (!selectedCheckpointId) return;
+    setSelectedObjectIds([]);
+    setEditingObjectId(null);
     sendRaw("checkpoint.restore", { id: selectedCheckpointId });
   }
 
@@ -1303,6 +1387,10 @@ export function BoardPage() {
           <span className="status-pill" data-status={status}>
             Status: {status}
           </span>
+          <PresencePanel
+            localDisplayName={displayName}
+            remotePresence={remotePresence}
+          />
         </div>
       </header>
 
@@ -1318,6 +1406,7 @@ export function BoardPage() {
           editingObjectId={editingObjectId}
           showResizeHandles={showResizeHandles}
           marquee={marquee}
+          activeTool={tool}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

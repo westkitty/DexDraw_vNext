@@ -21,6 +21,7 @@ type BoardCanvasProps = {
   editingObjectId?: string | null;
   showResizeHandles?: boolean;
   marquee?: MarqueeRect | null;
+  activeTool?: string;
   onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerUp: () => void;
@@ -171,6 +172,7 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
       editingObjectId,
       showResizeHandles,
       marquee,
+      activeTool,
       onPointerDown,
       onPointerMove,
       onPointerUp,
@@ -183,9 +185,13 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
     function makeObjectHandlers(id: string) {
       return {
         onPointerDown: (e: ReactPointerEvent<SVGElement>) => {
-          if (onObjectPointerDown) {
+          // Only capture (stopPropagation) in select mode so that drawing tools
+          // can start a shape even when the pointer-down lands on an existing object.
+          if (activeTool === "select") {
             e.stopPropagation();
-            onObjectPointerDown(id, e);
+            if (onObjectPointerDown) {
+              onObjectPointerDown(id, e);
+            }
           }
         },
         onDoubleClick: () => {
@@ -371,6 +377,25 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
                 stroke="#ef4444"
                 strokeWidth={3}
               />
+              <rect
+                x={presence.x + 22}
+                y={presence.y - 18}
+                width={Math.max(52, presence.displayName.length * 9)}
+                height={22}
+                rx={11}
+                fill="#ef4444"
+                pointerEvents="none"
+              />
+              <text
+                data-testid="remote-laser-label"
+                x={presence.x + 32}
+                y={presence.y - 3}
+                fill="#fff"
+                fontSize={13}
+                pointerEvents="none"
+              >
+                {presence.displayName}
+              </text>
             </g>
           ) : (
             <g key={presence.clientId} data-testid="remote-cursor">
@@ -384,10 +409,12 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
                 fill="#0f766e"
               />
               <text
+                data-testid="remote-cursor-label"
                 x={presence.x + 22}
                 y={presence.y - 2}
                 fill="#fff8ef"
                 fontSize={14}
+                pointerEvents="none"
               >
                 {presence.displayName}
               </text>

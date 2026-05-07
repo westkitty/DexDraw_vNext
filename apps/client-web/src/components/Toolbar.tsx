@@ -185,6 +185,7 @@ export function Toolbar({
       <button
         className="secondary-button"
         type="button"
+        data-testid="restore-button"
         onClick={onRestoreCheckpoint}
         disabled={!selectedCheckpointId || !canDraw}
       >
