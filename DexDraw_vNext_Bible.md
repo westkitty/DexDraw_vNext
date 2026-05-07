@@ -1514,3 +1514,151 @@ Begin Priority 1 — fix `BoardCanvas.tsx` `makeObjectHandlers` to only call `e.
 **Final verification:** 64/64 e2e, 113/113 unit, typecheck ✓, build ✓, biome ✓
 
 **Next tranche:** Priority 6 (UX polish) — keyboard shortcut hints, status text improvements, empty board message
+
+---
+
+### Entry 21 — Tranche 21: Stabilization, Audit, and Regression-Hardening Pass
+
+**Date:** 2026-05-07  
+**Commit:** `b4bee50`
+
+**Scope:** Broad stabilization audit across all Tranche 20 work. No new features — pure hardening, dead-code removal, and correctness fixes.
+
+---
+
+#### Priority 1 — Bible/Git/Source Reconciliation
+
+Verified all Tranche 20 claims against actual source code:
+
+- `pendingSeqsRef` present and used correctly ✓ (BoardPage.tsx:84, 274, 290, 317, 319, 447)
+- `activeTool` prop in `BoardCanvas.tsx` gating `stopPropagation` ✓ (line 190)
+- `PresencePanel.tsx` exists, imported in BoardPage ✓
+- `restore-button` testid in Toolbar.tsx ✓ (line 188)
+- `boundsFromBoardObjects` text estimation and ellipse markdown in export.ts ✓
+- Same-type inline-edit guard in `handlePointerDown` ✓ (line 900-902)
+- All new test files present ✓
+
+**Result:** All claims accurate. No reconciliation entries needed.
+
+---
+
+#### Priority 2 — Pointer-Event Routing Audit
+
+**Bug found and fixed:** `makeObjectHandlers.onDoubleClick` in `BoardCanvas.tsx` fired unconditionally — double-clicking a text/note object while in pen/rectangle/etc. mode would accidentally open the inline editor. The `onPointerDown` handler was already gated on `activeTool === "select"`, but `onDoubleClick` was not.
+
+**Fix:** Added `activeTool === "select"` guard to `onDoubleClick`:
+```typescript
+onDoubleClick: () => {
+  if (activeTool === "select" && onObjectDoubleClick) {
+    onObjectDoubleClick(id);
+  }
+},
+```
+
+**Consequence for tests:** `tests/e2e/inline-edit.spec.ts` — all 3 tests assumed the old (incorrect) behavior of double-clicking in tool mode. Updated to switch to Select before double-clicking. This is the correct UX flow.
+
+**New regression test added:** `pointer-event-routing.spec.ts` — "double-clicking a text object in pen mode does not open inline editor" (9th test in file).
+
+---
+
+#### Priority 3 — Presence UI and Ephemeral-State Audit
+
+**Issue found:** `remotePresence` state was never cleared on disconnect or reconnect. After a disconnect and reconnect, stale cursors from before the disconnect lingered until a new presence message arrived to trigger TTL filtering.
+
+**Fix 1:** Added `setRemotePresence([])` to `handleOffline` — clears stale cursors immediately when the WebSocket goes offline.
+
+**Fix 2:** Added `setRemotePresence([])` to the `server.welcome` handler — clears any stale pre-reconnect cursors when the fresh connection is established.
+
+**Server audit:** Confirmed server never persists presence messages — pure relay-and-forget.
+
+**Presence flakiness fix:** Presence tests that check WS relay results were timing out under full parallel suite load. Added `{ timeout: 10_000 }` to relay-dependent assertions. Added `workers: 3` cap in `playwright.config.ts` to prevent server overload.
+
+---
+
+#### Priority 4 — Self-Echo Skip and Undo/Redo Correctness
+
+Audited the `pendingSeqsRef` mechanism:
+- `sendRaw` adds seq before send ✓
+- `server.op` handler detects self-echo by `clientId === clientId && pendingSeqsRef.has(clientSeq)` ✓
+- Self-echoes deleted from set but not re-applied ✓
+- `server.welcome` clears pending set on reconnect ✓
+
+**Dead code removed:** `sendRaw` accepted a third parameter `skipUndoRecord?: boolean` that was silenced with `void skipUndoRecord` but never used. All callers that passed `true` as the third arg had it removed. The parameter itself was deleted.
+
+---
+
+#### Priority 5 — Snapshot Reset, Checkpoint Restore, Reconnect, Stale Selection Audit
+
+**Gap fixed:** In `replayMissedOps`, when a `checkpoint.restore` op is detected in the missed-ops list, the code correctly rolled back to the fallback snapshot and cleared selection — but did NOT clear undo/redo stacks. Stale undo entries from before the disconnect would remain, pointing to objects that no longer exist.
+
+**Fix:**
+```typescript
+if (data.ops.some((op) => op.opType === "checkpoint.restore")) {
+  setObjects(fallbackSnapshot);
+  setSelectedObjectIds([]);
+  undoStackRef.current = [];
+  redoStackRef.current = [];
+  setUndoCount(0);
+  setRedoCount(0);
+  return;
+}
+```
+
+`server.snapshot_reset` was already clearing undo/redo ✓ (line 292-295). The gap was only in the `replayMissedOps` checkpoint.restore branch.
+
+---
+
+#### Priority 6 — Export Correctness Audit
+
+**Improvement:** `exportSvgToPng` did not set explicit `width`/`height` attributes on the SVG clone. SVGs without explicit dimensions rely on the `viewBox` for intrinsic size, which some browsers handle inconsistently in `drawImage`. Added:
+```typescript
+clone.setAttribute("width", String(canvasWidth));
+clone.setAttribute("height", String(canvasHeight));
+```
+
+All 28 export unit tests still pass.
+
+---
+
+#### Priority 7 — Code Quality Pass
+
+- Removed dead `skipUndoRecord` parameter from `sendRaw` (see P4 above)
+- All testids verified present and correctly named
+- TypeScript: `pnpm typecheck` clean ✓
+- Biome: `pnpm lint` clean ✓ (one format fix: status text inline expression)
+
+---
+
+#### Priority 8 — Small UX Fixes
+
+1. **Status display** — capitalized: "Status: Connecting" / "Status: Connected" / "Status: Disconnected" (tests use case-insensitive regex, no test breakage)
+2. **Empty-board hint** — added SVG text in `BoardCanvas.tsx` when `objects.length === 0`: "Select a tool above to start drawing" with `data-testid="empty-board-hint"`, `pointerEvents="none"`
+3. **Toolbar tooltips** — added `title` attributes to Undo (⌘Z), Redo (⌘⇧Z), and Duplicate (⌘D) buttons
+
+---
+
+#### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/client-web/src/components/BoardCanvas.tsx` | `onDoubleClick` gated on select; empty-board hint |
+| `apps/client-web/src/components/BoardPage.tsx` | Presence cleared on disconnect/reconnect; undo/redo cleared on checkpoint.restore replay; `sendRaw` dead param removed; status text capitalized |
+| `apps/client-web/src/components/Toolbar.tsx` | Title tooltips on Undo/Redo/Duplicate |
+| `apps/client-web/src/lib/export.ts` | Explicit width/height on SVG clone |
+| `playwright.config.ts` | `workers: 3` cap |
+| `tests/e2e/inline-edit.spec.ts` | Switch to Select before double-click |
+| `tests/e2e/pointer-event-routing.spec.ts` | New test: dblclick in non-select mode |
+| `tests/e2e/presence.spec.ts` | Timeout guards on relay assertions |
+
+#### Verification
+
+```
+pnpm --filter @dexdraw/client-web exec vitest run   → 113/113 ✓
+pnpm --filter @dexdraw/server-api exec vitest run   → 13/13 ✓
+pnpm typecheck                                       → clean ✓
+pnpm lint                                            → clean ✓
+pnpm build                                           → clean ✓
+pnpm exec playwright test                            → 65/65 ✓
+```
+
+**Commit:** `b4bee50`
