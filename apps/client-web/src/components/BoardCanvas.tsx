@@ -2,6 +2,7 @@ import { type Point, pointsToSvgPath } from "@dexdraw/shared-core";
 import type { BoardObject } from "@dexdraw/shared-protocol";
 import { forwardRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import type { MarqueeRect } from "../lib/marquee";
 import { type ResizeHandle, getBoundsForObject } from "../lib/resize";
 
 export type PresenceState = {
@@ -19,6 +20,7 @@ type BoardCanvasProps = {
   selectedObjectIds: string[];
   editingObjectId?: string | null;
   showResizeHandles?: boolean;
+  marquee?: MarqueeRect | null;
   onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerUp: () => void;
@@ -168,6 +170,7 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
       selectedObjectIds,
       editingObjectId,
       showResizeHandles,
+      marquee,
       onPointerDown,
       onPointerMove,
       onPointerUp,
@@ -341,6 +344,21 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
               />
             ) : null;
           })()}
+
+        {marquee && marquee.width > 0 && marquee.height > 0 ? (
+          <rect
+            data-testid="marquee-selection"
+            x={marquee.x}
+            y={marquee.y}
+            width={marquee.width}
+            height={marquee.height}
+            fill="rgba(59,130,246,0.08)"
+            stroke="#3b82f6"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            pointerEvents="none"
+          />
+        ) : null}
 
         {remotePresence.map((presence) =>
           presence.type === "presence.laser" ? (

@@ -12,6 +12,12 @@ import { useParams } from "react-router-dom";
 import { applyCanonicalOperation } from "../lib/boardState";
 import { exportMarkdown, exportSvgToPng, exportToPdf } from "../lib/export";
 import { hitTestObjects } from "../lib/hitTest";
+import {
+  MARQUEE_THRESHOLD,
+  type MarqueeRect,
+  normalizeRect,
+  objectIntersectsMarquee,
+} from "../lib/marquee";
 import { type RemotePresence, mergePresence } from "../lib/presence";
 import {
   type ResizableBounds,
@@ -59,6 +65,7 @@ export function BoardPage() {
   const [remotePresence, setRemotePresence] = useState<RemotePresence[]>([]);
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
   const [editingObjectId, setEditingObjectId] = useState<string | null>(null);
+  const [marquee, setMarquee] = useState<MarqueeRect | null>(null);
   const [undoCount, setUndoCount] = useState(0);
   const [redoCount, setRedoCount] = useState(0);
   const [checkpoints, setCheckpoints] = useState<CheckpointSummary[]>([]);
@@ -79,6 +86,11 @@ export function BoardPage() {
   const isDraggingRef = useRef(false);
   const dragStartPosRef = useRef<Point | null>(null);
   const dragInitialObjectsRef = useRef<BoardObject[]>([]);
+
+  const isMarqueeingRef = useRef(false);
+  const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const marqueeShiftRef = useRef(false);
+  const marqueeRectRef = useRef<MarqueeRect | null>(null);
 
   const isResizingRef = useRef(false);
   const resizeHandleRef = useRef<ResizeHandle | null>(null);
@@ -697,9 +709,9 @@ export function BoardPage() {
           nextSelected.includes(o.id),
         );
       } else {
-        if (!isShift) {
-          setSelectedObjectIds([]);
-        }
+        isMarqueeingRef.current = true;
+        marqueeStartRef.current = { x: point.x, y: point.y };
+        marqueeShiftRef.current = isShift;
       }
       return;
     }
@@ -789,6 +801,18 @@ export function BoardPage() {
       return;
     }
 
+    if (isMarqueeingRef.current && marqueeStartRef.current) {
+      const rect = normalizeRect(
+        marqueeStartRef.current.x,
+        marqueeStartRef.current.y,
+        point.x,
+        point.y,
+      );
+      marqueeRectRef.current = rect;
+      setMarquee(rect);
+      return;
+    }
+
     if (
       isDraggingRef.current &&
       dragInitialObjectsRef.current.length > 0 &&
@@ -835,6 +859,33 @@ export function BoardPage() {
   }
 
   function handlePointerUp() {
+    if (isMarqueeingRef.current) {
+      const rect = marqueeRectRef.current;
+      const isShift = marqueeShiftRef.current;
+      if (
+        rect &&
+        (rect.width >= MARQUEE_THRESHOLD || rect.height >= MARQUEE_THRESHOLD)
+      ) {
+        const intersecting = objectsRef.current
+          .filter((o) => objectIntersectsMarquee(o, rect))
+          .map((o) => o.id);
+        if (isShift) {
+          setSelectedObjectIds((prev) => [
+            ...new Set([...prev, ...intersecting]),
+          ]);
+        } else {
+          setSelectedObjectIds(intersecting);
+        }
+      } else {
+        if (!isShift) setSelectedObjectIds([]);
+      }
+      setMarquee(null);
+      marqueeRectRef.current = null;
+      isMarqueeingRef.current = false;
+      marqueeStartRef.current = null;
+      return;
+    }
+
     if (
       isResizingRef.current &&
       resizeInitialBoundsRef.current &&
@@ -1126,6 +1177,7 @@ export function BoardPage() {
           selectedObjectIds={selectedObjectIds}
           editingObjectId={editingObjectId}
           showResizeHandles={showResizeHandles}
+          marquee={marquee}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

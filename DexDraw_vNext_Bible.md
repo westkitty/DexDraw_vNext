@@ -1202,3 +1202,69 @@ Possible next tranches:
 3. **Ellipse resize visual** — the ellipse selection ring uses `rx+padding / ry+padding`; the resize handles are at the bounding-box corners which is slightly outside the visual ring. Could align them to the ring if desired.
 4. **Richer presence UI** — avatar bubbles, user list panel, cursor name labels.
 5. **z-order controls** — bring to front / send to back operations.
+
+---
+
+## Entry 18 — Marquee (Rubber-Band) Selection
+
+**Commit:** _(pending — see below)_
+**Branch:** main
+**Date:** 2026-05-07
+
+### Goal
+
+Implement rubber-band (marquee) selection for the Select tool. Dragging on empty canvas draws a temporary blue selection rectangle; on pointer-up every board object whose AABB intersects the marquee is selected. Shift-drag unions with the existing selection. A minimum 4 SVG-unit drag threshold prevents accidental marquee from ordinary clicks.
+
+### Scope
+
+- **Select tool only**, **empty canvas only** — dragging on an object or using any other tool is unaffected.
+- All object types: stroke (point-cloud), rectangle, ellipse, text (approximate AABB), note.
+- Shift-held: additive selection (union). No-shift: replace selection.
+- Sub-threshold drag on empty canvas: deselects if no Shift, no-op if Shift.
+- Client-only state (no durable ops). Marquee rect hidden immediately on pointer-up.
+- Multi-selected objects continue to support grouped delete and grouped drag.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/client-web/src/lib/marquee.ts` | NEW — `MarqueeRect`, `MARQUEE_THRESHOLD`, `normalizeRect`, `boundsForMarquee`, `rectsIntersect`, `objectIntersectsMarquee` |
+| `apps/client-web/src/__tests__/marquee.test.ts` | NEW — 26 unit tests covering all helper functions and all object types |
+| `apps/client-web/src/components/BoardCanvas.tsx` | Added `marquee` prop; renders `<rect data-testid="marquee-selection">` when active |
+| `apps/client-web/src/components/BoardPage.tsx` | Added `marquee` state, 4 refs (`isMarqueeingRef`, `marqueeStartRef`, `marqueeShiftRef`, `marqueeRectRef`), marquee logic in `handlePointerDown` / `handlePointerMove` / `handlePointerUp`; passes `marquee` to `BoardCanvas` |
+| `tests/e2e/marquee.spec.ts` | NEW — 6 Playwright tests |
+
+### Architecture Decisions
+
+- **Pure helper module (`marquee.ts`):** All geometry lives outside React for unit testability — same pattern as `resize.ts`.
+- **`handlePointerUp` has no arguments:** `marqueeRectRef` tracks the live rect on every pointermove so pointer-up can read it — same pattern as `resizeCurrentBoundsRef`.
+- **Mode ordering in handlers:** marquee check inserted *after* resize and *before* drag in both `handlePointerMove` and `handlePointerUp`, preventing any interference.
+- **Text AABB approximation:** `text.length * fontSize * 0.6` for width, `fontSize` for height — consistent with the `SelectionRing` text rendering already in `BoardCanvas`.
+- **Stroke AABB:** point-cloud min/max bounding box, consistent with `SelectionRing` stroke rendering.
+- **`rectsIntersect` uses `<=` / `>=`:** edge-touching rects count as intersecting (standard canvas selection behaviour).
+
+### Commands Run (Gates)
+
+```
+pnpm --filter @dexdraw/client-web test   # 87/87 ✓ (26 new marquee tests)
+pnpm typecheck                           # 0 errors
+pnpm build                               # pass
+pnpm lint                                # 0 errors (after biome auto-fix on 4 files)
+```
+
+### State After Completion
+
+- `pnpm lint` passes (0 errors).
+- `pnpm typecheck` passes (all 4 packages).
+- `pnpm test` passes (87 client-web unit tests).
+- `pnpm build` passes.
+- `pnpm test:e2e` not yet run (requires live server; see prior entries for how to run).
+
+### Next Step / Handoff
+
+Possible next tranches:
+1. **Edge resize handles** — N/S/E/W mid-edge handles in addition to four corners.
+2. **Ellipse resize visual alignment** — resize handles sit at bounding-box corners; could align to ring boundary.
+3. **Richer presence UI** — avatar bubbles, user list panel.
+4. **z-order controls** — bring to front / send to back.
+5. **Export improvements** — multi-page PDF, SVG export.
