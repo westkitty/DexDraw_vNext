@@ -1439,3 +1439,36 @@ Begin Priority 1 — fix `BoardCanvas.tsx` `makeObjectHandlers` to only call `e.
 **Verification:** All 11 selection-hardening tests pass. Presence (6) and pointer-event-routing (8) still pass. No regressions.
 
 **Next:** Priority 4 — Export polish and correctness
+
+---
+
+### Entry 20.4 — Priority 4: Export Polish and Correctness
+
+**Date:** 2026-05-07
+
+**Changes made:**
+
+**`apps/client-web/src/lib/export.ts`:**
+- `boundsFromBoardObjects`: text objects now get estimated bounds using `fontSize × charCount × 0.55` (width) and `fontSize × 1.4` (height), replacing the previous degenerate point treatment
+- `boardToMarkdown`: ellipses now emit `*(ellipse)*` in the markdown output (previously skipped)
+- `exportToPdf`: added inline CSS (`body{margin:0}svg{width:100vw;height:100vh}`), calls `focus()` and `print()` on the new window to auto-trigger the print dialog
+
+**`apps/client-web/src/__tests__/export.test.ts`:**
+- Updated text-bounds test: no longer expects degenerate 0×0, checks that width/height > 0
+- Updated union-bounds tests: looser assertions since text now contributes real size
+- New test: ellipse markdown renders as `*(ellipse)*`
+- Updated clamp-to-1×1 test: uses a single-point stroke (genuinely degenerate) rather than text
+
+**Also committed in this tranche (regression fix found during export work):**
+- `BoardPage.tsx`: added guard in `handlePointerDown` — when tool is "text" or "note" and the pointer-down lands on an element with the same testid type, return early. This prevents double-clicking a note to edit from creating 2 extra note objects (the original pointer-event routing fix was too broad and broke inline editing).
+
+**Files modified:**
+- `apps/client-web/src/lib/export.ts`
+- `apps/client-web/src/__tests__/export.test.ts`
+- `apps/client-web/src/components/BoardPage.tsx` (inline-edit regression fix)
+
+**Verification:** 113/113 unit tests pass, 63/63 e2e tests pass, typecheck clean, build clean.
+
+**Commit:** `612308c`
+
+**Next:** Priority 5 — Checkpoint/undo/replay remaining edge cases; then close tranche

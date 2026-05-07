@@ -162,3 +162,42 @@ test("reconnect replays missed durable ops after going back online", async ({
 
   await viewer.close();
 });
+
+test("client creates object then goes offline and back online — no duplicates", async ({
+  browser,
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("Board name").fill("No-Dup Reconnect Board");
+  await page.getByLabel("Your name").fill("Owner");
+  await page.getByRole("button", { name: "Create board" }).click();
+  await expect(page.getByTestId("board-canvas")).toBeVisible();
+
+  // Place a rectangle
+  await page.getByRole("button", { name: "Rectangle" }).click();
+  const canvas = page.getByTestId("board-canvas");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("Canvas bounds missing");
+  await page.mouse.move(box.x + 100, box.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 250, box.y + 200, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByTestId("rectangle-object")).toHaveCount(1);
+
+  // Go offline and back online
+  await page.context().setOffline(true);
+  await expect(page.getByText(/Status: disconnected/i)).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.context().setOffline(false);
+  await expect(page.getByText(/Status: connected/i)).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // After reconnect, still exactly 1 rectangle (no duplicates from replay)
+  await expect(page.getByTestId("rectangle-object")).toHaveCount(1);
+
+  // Reload to verify server state is also consistent
+  await page.reload();
+  await expect(page.getByTestId("rectangle-object")).toHaveCount(1);
+});

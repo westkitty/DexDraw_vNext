@@ -269,6 +269,9 @@ export function BoardPage() {
           const previousSeq = serverSeqRef.current;
           setRole(message.role);
           serverSeqRef.current = message.serverSeq;
+          // Clear stale pending seqs from before the disconnect; any ops that
+          // weren't echoed are now reflected in the server state we're receiving.
+          pendingSeqsRef.current.clear();
           if (
             previousSeq > 0 &&
             previousSeq < message.serverSeq &&
@@ -894,12 +897,9 @@ export function BoardPage() {
     // Clicking on a DIFFERENT type of object is still allowed so that text/
     // note labels can be placed on top of shapes.
     if (tool === "text" || tool === "note") {
-      const sameTypeTestId =
-        tool === "text" ? "text-object" : "note-object";
+      const sameTypeTestId = tool === "text" ? "text-object" : "note-object";
       if (
-        (event.target as Element).closest(
-          `[data-testid="${sameTypeTestId}"]`,
-        )
+        (event.target as Element).closest(`[data-testid="${sameTypeTestId}"]`)
       ) {
         return;
       }
