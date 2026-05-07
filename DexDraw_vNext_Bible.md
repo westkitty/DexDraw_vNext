@@ -1472,3 +1472,45 @@ Begin Priority 1 — fix `BoardCanvas.tsx` `makeObjectHandlers` to only call `e.
 **Commit:** `612308c`
 
 **Next:** Priority 5 — Checkpoint/undo/replay remaining edge cases; then close tranche
+
+---
+
+### Entry 20.5 — Priority 5: Checkpoint/Undo/Replay Edge-Case Hardening
+
+**Date:** 2026-05-07
+
+**Changes made:**
+
+**`apps/client-web/src/components/BoardPage.tsx`:**
+- `server.welcome` handler now calls `pendingSeqsRef.current.clear()` on every reconnect. Before this fix, stale clientSeqs from a pre-disconnect session could linger in the pending set; if sequence numbers happened to overlap in a new session, echoes could be silently dropped. Clearing on welcome ensures the set reflects only the current connection.
+- Note: `applyCanonicalOperation` for `object.create` uses a Map keyed by object ID, making create ops idempotent — re-applying a create during replay just overwrites the same object with the same data. This is the reason reconnect-replay cannot cause duplicate objects.
+
+**`tests/e2e/two-client-sync.spec.ts`:**
+- New test: "client creates object then goes offline and back online — no duplicates"
+  - Creates a rect, forces the page offline and back online, asserts exactly 1 rect after reconnect, then reloads to verify server state also has exactly 1 rect.
+
+**Files modified:**
+- `apps/client-web/src/components/BoardPage.tsx`
+- `tests/e2e/two-client-sync.spec.ts`
+
+**Verification:** 64/64 e2e tests pass, 113/113 unit tests pass, typecheck clean, biome clean.
+
+**Commit:** `387fada`
+
+---
+
+### Entry 20 — Tranche 20 Final Summary
+
+**Date:** 2026-05-07  
+**Commits:** `612308c` (main tranche), `387fada` (Priority 5)
+
+**Total scope:**
+- **6 new e2e test files** (25 total new tests across pointer-event-routing, presence, selection-hardening, two-client-sync extension)
+- **4 React components modified** (BoardPage, BoardCanvas, Toolbar, PresencePanel new)
+- **2 lib files updated** (export.ts, new PresencePanel)
+- **Bugs fixed:** pointer-event routing (drawing over objects), self-echo override undo, inline-edit double-create regression, text/note same-type placement guard
+- **Features added:** presence panel, cursor/laser labels, Escape key handling, auto-checkpoint-select, text bounds estimation, ellipse markdown, PDF print trigger
+
+**Final verification:** 64/64 e2e, 113/113 unit, typecheck ✓, build ✓, biome ✓
+
+**Next tranche:** Priority 6 (UX polish) — keyboard shortcut hints, status text improvements, empty board message
