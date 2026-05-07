@@ -195,7 +195,7 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
           }
         },
         onDoubleClick: () => {
-          if (onObjectDoubleClick) {
+          if (activeTool === "select" && onObjectDoubleClick) {
             onObjectDoubleClick(id);
           }
         },
@@ -217,6 +217,22 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
         onPointerLeave={onPointerUp}
       >
         <title>Collaborative drawing canvas</title>
+
+        {objects.length === 0 ? (
+          <text
+            x="800"
+            y="450"
+            textAnchor="middle"
+            fill="#d4c5b0"
+            fontSize={28}
+            fontFamily="sans-serif"
+            pointerEvents="none"
+            data-testid="empty-board-hint"
+          >
+            Select a tool above to start drawing
+          </text>
+        ) : null}
+
         {objects.map((object) => {
           const handlers = makeObjectHandlers(object.id);
 

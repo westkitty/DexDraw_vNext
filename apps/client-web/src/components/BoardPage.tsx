@@ -203,6 +203,10 @@ export function BoardPage() {
       if (data.ops.some((op) => op.opType === "checkpoint.restore")) {
         setObjects(fallbackSnapshot);
         setSelectedObjectIds([]);
+        undoStackRef.current = [];
+        redoStackRef.current = [];
+        setUndoCount(0);
+        setRedoCount(0);
         return;
       }
 
@@ -272,6 +276,9 @@ export function BoardPage() {
           // Clear stale pending seqs from before the disconnect; any ops that
           // weren't echoed are now reflected in the server state we're receiving.
           pendingSeqsRef.current.clear();
+          // Clear stale remote presence — remote clients' positions are unknown
+          // after a reconnect and will re-populate as they send new presence updates.
+          setRemotePresence([]);
           if (
             previousSeq > 0 &&
             previousSeq < message.serverSeq &&
@@ -355,6 +362,7 @@ export function BoardPage() {
 
     const handleOffline = () => {
       setStatus("disconnected");
+      setRemotePresence([]);
       clearReconnectTimer();
       const active = socketRef.current;
       socketRef.current = null;
@@ -434,11 +442,7 @@ export function BoardPage() {
     setRedoCount(0);
   }
 
-  function sendRaw(
-    opType: string,
-    payload: unknown,
-    skipUndoRecord?: boolean,
-  ): void {
+  function sendRaw(opType: string, payload: unknown): void {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
@@ -457,7 +461,6 @@ export function BoardPage() {
         sentAt: new Date().toISOString(),
       }),
     );
-    void skipUndoRecord;
   }
 
   function sendObjectCreate(object: BoardObject) {
@@ -524,7 +527,7 @@ export function BoardPage() {
     if (entry.kind === "create") {
       for (const object of entry.objects) {
         setObjects((current) => current.filter((o) => o.id !== object.id));
-        sendRaw("object.delete", { id: object.id }, true);
+        sendRaw("object.delete", { id: object.id });
       }
       redoStackRef.current.push(entry);
     } else if (entry.kind === "update") {
@@ -542,7 +545,7 @@ export function BoardPage() {
             createdAt: new Date().toISOString(),
           }),
         );
-        sendRaw("object.update", { id: update.id, patch: update.prev }, true);
+        sendRaw("object.update", { id: update.id, patch: update.prev });
       }
       redoStackRef.current.push(entry);
     } else if (entry.kind === "delete") {
@@ -550,7 +553,7 @@ export function BoardPage() {
         setObjects((current) =>
           [...current, object].sort((a, b) => a.zIndex - b.zIndex),
         );
-        sendRaw("object.create", object, true);
+        sendRaw("object.create", object);
       }
       redoStackRef.current.push(entry);
     }
@@ -570,7 +573,7 @@ export function BoardPage() {
             (a, b) => a.zIndex - b.zIndex,
           ),
         );
-        sendRaw("object.create", object, true);
+        sendRaw("object.create", object);
       }
       undoStackRef.current.push(entry);
     } else if (entry.kind === "update") {
@@ -588,13 +591,13 @@ export function BoardPage() {
             createdAt: new Date().toISOString(),
           }),
         );
-        sendRaw("object.update", { id: update.id, patch: update.next }, true);
+        sendRaw("object.update", { id: update.id, patch: update.next });
       }
       undoStackRef.current.push(entry);
     } else if (entry.kind === "delete") {
       for (const object of entry.objects) {
         setObjects((current) => current.filter((o) => o.id !== object.id));
-        sendRaw("object.delete", { id: object.id }, true);
+        sendRaw("object.delete", { id: object.id });
       }
       undoStackRef.current.push(entry);
     }
@@ -1385,7 +1388,7 @@ export function BoardPage() {
 
         <div className="meta-group">
           <span className="status-pill" data-status={status}>
-            Status: {status}
+            Status: {status.charAt(0).toUpperCase() + status.slice(1)}
           </span>
           <PresencePanel
             localDisplayName={displayName}

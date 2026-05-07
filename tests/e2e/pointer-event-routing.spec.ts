@@ -139,6 +139,27 @@ test.describe("pointer-event routing", () => {
     await expect(page.getByTestId("rectangle-object")).toHaveCount(1);
   });
 
+  // ── double-click in non-select mode must not open inline editor ─────────────
+
+  test("double-clicking a text object in pen mode does not open inline editor", async ({
+    page,
+  }) => {
+    await createBoard(page, "Pen DblClick No Edit Board");
+    const canvas = page.getByTestId("board-canvas");
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("Canvas not found");
+
+    // Place a text object via the Text tool
+    await page.getByRole("button", { name: "Text" }).click();
+    await page.mouse.click(box.x + 300, box.y + 200);
+    await expect(page.getByTestId("text-object")).toHaveCount(1);
+
+    // Switch to Pen and double-click on the text object — must NOT open the editor
+    await page.getByRole("button", { name: "Pen" }).click();
+    await page.mouse.dblclick(box.x + 300, box.y + 200);
+    await expect(page.getByTestId("inline-editor")).not.toBeVisible();
+  });
+
   // ── select tool still works ──────────────────────────────────────────────────
 
   test("select tool still selects and drag-moves objects", async ({ page }) => {

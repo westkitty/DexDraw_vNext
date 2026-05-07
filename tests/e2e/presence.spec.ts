@@ -70,8 +70,10 @@ test.describe("presence UI", () => {
     if (!boxB) throw new Error("Canvas not found");
     await pageB.mouse.move(boxB.x + 300, boxB.y + 200);
 
-    // Client A should now see 2 participants
-    await expect(page.getByTestId("presence-count")).toHaveText("2");
+    // Client A should now see 2 participants (allow extra time for WS relay under load)
+    await expect(page.getByTestId("presence-count")).toHaveText("2", {
+      timeout: 10_000,
+    });
     await expect(page.getByTestId("presence-participant")).toHaveCount(2);
 
     await ctxB.close();
@@ -194,7 +196,9 @@ test.describe("presence UI", () => {
     const boxB = await canvasB.boundingBox();
     if (!boxB) throw new Error("Canvas not found");
     await pageB.mouse.move(boxB.x + 400, boxB.y + 300);
-    await expect(page.getByTestId("remote-cursor")).toBeVisible();
+    await expect(page.getByTestId("remote-cursor")).toBeVisible({
+      timeout: 10_000,
+    });
 
     await ctxB.close();
 

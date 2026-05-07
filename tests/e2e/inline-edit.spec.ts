@@ -17,7 +17,8 @@ test("inline text editing commits and persists", async ({ page }) => {
   await page.mouse.click(box.x + 300, box.y + 200);
   await expect(page.getByTestId("text-object")).toHaveCount(1);
 
-  // Double-click the text object to open inline editor
+  // Switch to Select, then double-click to open inline editor
+  await page.getByRole("button", { name: "Select" }).click();
   await page.mouse.dblclick(box.x + 300, box.y + 200);
   const editor = page.getByTestId("inline-editor");
   await expect(editor).toBeVisible();
@@ -53,7 +54,8 @@ test("inline note editing commits and persists", async ({ page }) => {
   await page.mouse.click(box.x + 400, box.y + 300);
   await expect(page.getByTestId("note-object")).toHaveCount(1);
 
-  // Double-click the note object to open inline editor
+  // Switch to Select, then double-click to open inline editor
+  await page.getByRole("button", { name: "Select" }).click();
   await page.mouse.dblclick(box.x + 400, box.y + 320);
   const editor = page.getByTestId("inline-editor");
   await expect(editor).toBeVisible();
@@ -87,7 +89,8 @@ test("Escape cancels inline editing without changing content", async ({
   await page.mouse.click(box.x + 300, box.y + 200);
   await expect(page.getByTestId("text-object")).toHaveCount(1);
 
-  // Open inline editor
+  // Switch to Select, then open inline editor
+  await page.getByRole("button", { name: "Select" }).click();
   await page.mouse.dblclick(box.x + 300, box.y + 200);
   const editor = page.getByTestId("inline-editor");
   await expect(editor).toBeVisible();

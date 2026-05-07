@@ -167,6 +167,12 @@ export async function exportSvgToPng(
     canvasHeight = crop.height;
   }
 
+  // Set explicit dimensions so browsers reliably render the SVG at the right size
+  // when loaded as an Image element (SVGs without explicit w/h use their viewBox
+  // for intrinsic dimensions, which can behave inconsistently in drawImage).
+  clone.setAttribute("width", String(canvasWidth));
+  clone.setAttribute("height", String(canvasHeight));
+
   const serializer = new XMLSerializer();
   const svgMarkup = serializer.serializeToString(clone);
   const svgBlob = new Blob([svgMarkup], {

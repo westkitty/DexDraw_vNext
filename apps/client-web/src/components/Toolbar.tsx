@@ -89,6 +89,7 @@ export function Toolbar({
         onClick={onUndo}
         disabled={undoCount === 0}
         aria-label="Undo"
+        title="Undo (⌘Z)"
       >
         Undo
       </button>
@@ -98,6 +99,7 @@ export function Toolbar({
         onClick={onRedo}
         disabled={redoCount === 0}
         aria-label="Redo"
+        title="Redo (⌘⇧Z)"
       >
         Redo
       </button>
@@ -108,6 +110,7 @@ export function Toolbar({
         data-testid="duplicate-button"
         onClick={onDuplicate}
         disabled={!hasSelection || !canDraw}
+        title="Duplicate selection (⌘D)"
       >
         Duplicate
       </button>
