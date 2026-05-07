@@ -1,4 +1,5 @@
 import type { CheckpointSummary } from "@dexdraw/shared-protocol";
+import type { ArrangeAction } from "../lib/objectTransforms";
 
 export type Tool =
   | "select"
@@ -15,12 +16,15 @@ type ToolbarProps = {
   roleLabel: string;
   undoCount: number;
   redoCount: number;
+  selectedCount: number;
   checkpoints: CheckpointSummary[];
   selectedCheckpointId: string | null;
   onToolChange: (tool: Tool) => void;
   onExportPng: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onDuplicate: () => void;
+  onArrange: (action: ArrangeAction) => void;
   onSaveCheckpoint: () => void;
   onSelectCheckpoint: (id: string) => void;
   onRestoreCheckpoint: () => void;
@@ -45,12 +49,15 @@ export function Toolbar({
   roleLabel,
   undoCount,
   redoCount,
+  selectedCount,
   checkpoints,
   selectedCheckpointId,
   onToolChange,
   onExportPng,
   onUndo,
   onRedo,
+  onDuplicate,
+  onArrange,
   onSaveCheckpoint,
   onSelectCheckpoint,
   onRestoreCheckpoint,
@@ -58,6 +65,8 @@ export function Toolbar({
   onExportPdf,
   exportDisabled,
 }: ToolbarProps) {
+  const hasSelection = selectedCount > 0;
+
   return (
     <div className="toolbar" aria-label="Board toolbar">
       {tools.map((tool) => (
@@ -92,6 +101,63 @@ export function Toolbar({
       >
         Redo
       </button>
+
+      <button
+        className="secondary-button"
+        type="button"
+        data-testid="duplicate-button"
+        onClick={onDuplicate}
+        disabled={!hasSelection || !canDraw}
+      >
+        Duplicate
+      </button>
+
+      <button
+        className="secondary-button"
+        type="button"
+        data-testid="arrange-front"
+        onClick={() => onArrange("front")}
+        disabled={!hasSelection || !canDraw}
+        aria-label="Bring to front"
+      >
+        Front
+      </button>
+      <button
+        className="secondary-button"
+        type="button"
+        data-testid="arrange-forward"
+        onClick={() => onArrange("forward")}
+        disabled={!hasSelection || !canDraw}
+        aria-label="Bring forward"
+      >
+        Forward
+      </button>
+      <button
+        className="secondary-button"
+        type="button"
+        data-testid="arrange-backward"
+        onClick={() => onArrange("backward")}
+        disabled={!hasSelection || !canDraw}
+        aria-label="Send backward"
+      >
+        Backward
+      </button>
+      <button
+        className="secondary-button"
+        type="button"
+        data-testid="arrange-back"
+        onClick={() => onArrange("back")}
+        disabled={!hasSelection || !canDraw}
+        aria-label="Send to back"
+      >
+        Back
+      </button>
+
+      {hasSelection ? (
+        <span data-testid="selection-count" aria-live="polite">
+          {selectedCount} selected
+        </span>
+      ) : null}
 
       <button
         className="secondary-button"

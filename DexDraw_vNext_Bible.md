@@ -1268,3 +1268,62 @@ Possible next tranches:
 3. **Richer presence UI** — avatar bubbles, user list panel.
 4. **z-order controls** — bring to front / send to back.
 5. **Export improvements** — multi-page PDF, SVG export.
+
+---
+
+## Entry 19 — Object Arrange, Duplicate, and Keyboard Nudge
+
+**Commit:** (filled after commit)
+**Branch:** main
+**Date:** 2026-05-07
+
+### What Changed
+
+Implemented four related product-hardening features in one tranche:
+
+**1. Object arrange / z-order** — Four toolbar buttons (Front, Forward, Backward, Back) reorder selected objects in the z-stack. Multi-object selection moves the whole group as a unit, preserving relative order within the group. The logic lives in a pure helper `computeArrange()` that outputs dense integer zIndex assignments. Changes are sent to the server as `object.update { patch: { zIndex } }` messages, so they persist across reloads and sync to other clients. One `pushUndo` call = one undo step.
+
+**2. Duplicate selected objects** — A "Duplicate" toolbar button clones all selected objects with a +24/+24 SVG-unit offset. Multi-object duplicate preserves relative positions. Duplicates are sent to the server as `object.create` messages. The new copies become the active selection. One undo step removes all duplicates.
+
+**3. Keyboard nudge** — Arrow keys move selected objects 8 SVG units; Shift+Arrow moves 32 units. Works for multi-selection (all selected objects move together). One undo step per key press. All four `object.update` messages are batched into a single `pushUndo` call.
+
+**4. Selection count indicator** — A `data-testid="selection-count"` span shows "{n} selected" when objects are selected, hidden otherwise. All five arrange/duplicate buttons are disabled when nothing is selected or role is view.
+
+### Key Design Decisions
+
+- **No protocol changes** — `object.update` with a zIndex patch was always supported; `object.reorder` schema exists but was bypassed in favor of consistency with the existing undo system.
+- **Pure helper module** — `apps/client-web/src/lib/objectTransforms.ts` contains `computeArrange` and `duplicateObject` with no React dependencies. This made unit-testing straightforward.
+- **E2e test guard** — `aria-label="Duplicate selection"` on the Duplicate button caused a Playwright strict-mode violation (partial match against "Select" button name). Fixed by removing the aria-label; the button text "Duplicate" is sufficient.
+- **Overlapping rect drawing** — A pre-existing behavior: drawing a rect starting inside an existing SVG element triggers `stopPropagation` on the object's `onPointerDown`, blocking the SVG-level handler. Tests that need two rects use non-overlapping positions to avoid this.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/client-web/src/lib/objectTransforms.ts` | New — `computeArrange`, `duplicateObject` helpers |
+| `apps/client-web/src/__tests__/objectTransforms.test.ts` | New — 25 unit tests |
+| `apps/client-web/src/components/Toolbar.tsx` | Added arrange/duplicate buttons, selection-count span |
+| `apps/client-web/src/components/BoardPage.tsx` | Added `handleArrange`, `handleDuplicate`, `handleNudge`, arrow-key handler |
+| `tests/e2e/arrange-duplicate-nudge.spec.ts` | New — 9 Playwright tests |
+
+### Verification
+
+```
+pnpm typecheck                           # pass (all 4 packages)
+pnpm test                                # pass (112 unit tests: 25 new + 87 existing)
+pnpm build                               # pass
+pnpm lint                                # 0 errors
+pnpm test:e2e                            # 38/38 pass
+```
+
+### State After Completion
+
+All 38 e2e tests pass. Unit tests: 112 total (up from 87). Build clean. Lint clean. TypeScript clean.
+
+### Next Step / Handoff
+
+Possible next tranches:
+1. **Presence polish** — avatar bubbles, user list panel, cursor labels.
+2. **Edge resize handles** — N/S/E/W mid-edge handles.
+3. **Richer export** — multi-page PDF, SVG export.
+4. **Fix overlapping-rect drawing** — Objects intercept `pointerdown` with `stopPropagation` even when not in select mode; drawing tools cannot start a shape on top of existing objects.

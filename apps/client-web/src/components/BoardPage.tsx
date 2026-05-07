@@ -18,6 +18,11 @@ import {
   normalizeRect,
   objectIntersectsMarquee,
 } from "../lib/marquee";
+import {
+  type ArrangeAction,
+  computeArrange,
+  duplicateObject,
+} from "../lib/objectTransforms";
 import { type RemotePresence, mergePresence } from "../lib/presence";
 import {
   type ResizableBounds,
@@ -554,7 +559,7 @@ export function BoardPage() {
     setRedoCount(redoStackRef.current.length);
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sendObjectDelete/handleUndo/handleRedo are recreated but always close over up-to-date state; the key state they depend on (selectedObjectId, role) is already listed
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sendObjectDelete/handleUndo/handleRedo/handleNudge/handleDuplicate are recreated but always close over up-to-date state; the key state they depend on (selectedObjectIds, role, editingObjectId) is already listed
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (editingObjectId) return;
@@ -573,6 +578,23 @@ export function BoardPage() {
         }
         setSelectedObjectIds([]);
         pushUndo({ kind: "delete", objects: toDelete });
+        return;
+      }
+      if (
+        (e.key === "ArrowUp" ||
+          e.key === "ArrowDown" ||
+          e.key === "ArrowLeft" ||
+          e.key === "ArrowRight") &&
+        selectedObjectIds.length > 0 &&
+        role !== "view"
+      ) {
+        e.preventDefault();
+        const amount = e.shiftKey ? 32 : 8;
+        const dx =
+          e.key === "ArrowLeft" ? -amount : e.key === "ArrowRight" ? amount : 0;
+        const dy =
+          e.key === "ArrowUp" ? -amount : e.key === "ArrowDown" ? amount : 0;
+        handleNudge(dx, dy);
         return;
       }
       if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
@@ -678,6 +700,121 @@ export function BoardPage() {
 
   function handleInlineCancel() {
     setEditingObjectId(null);
+  }
+
+  function handleArrange(action: ArrangeAction) {
+    if (selectedObjectIds.length === 0 || role === "view") return;
+    const changes = computeArrange(
+      objectsRef.current,
+      selectedObjectIds,
+      action,
+    );
+    if (changes.length === 0) return;
+
+    setObjects((current) =>
+      current
+        .map((o) => {
+          const ch = changes.find((c) => c.id === o.id);
+          return ch ? { ...o, zIndex: ch.nextZIndex } : o;
+        })
+        .sort((a, b) => a.zIndex - b.zIndex),
+    );
+    for (const ch of changes) {
+      sendRaw("object.update", { id: ch.id, patch: { zIndex: ch.nextZIndex } });
+    }
+    pushUndo({
+      kind: "update",
+      updates: changes.map((ch) => ({
+        id: ch.id,
+        prev: { zIndex: ch.prevZIndex } as Partial<BoardObject>,
+        next: { zIndex: ch.nextZIndex } as Partial<BoardObject>,
+      })),
+    });
+  }
+
+  function handleDuplicate() {
+    if (selectedObjectIds.length === 0 || role === "view") return;
+    const toClone = objectsRef.current.filter((o) =>
+      selectedObjectIds.includes(o.id),
+    );
+    if (toClone.length === 0) return;
+
+    const maxZ =
+      objectsRef.current.length > 0
+        ? Math.max(...objectsRef.current.map((o) => o.zIndex))
+        : -1;
+    const now = new Date().toISOString();
+
+    const duplicates = toClone.map((o, i) =>
+      duplicateObject(o, crypto.randomUUID(), maxZ + 1 + i, now, displayName),
+    );
+
+    setObjects((current) =>
+      [...current, ...duplicates].sort((a, b) => a.zIndex - b.zIndex),
+    );
+    for (const dup of duplicates) {
+      sendRaw("object.create", dup);
+    }
+    pushUndo({ kind: "create", objects: duplicates });
+    setSelectedObjectIds(duplicates.map((d) => d.id));
+  }
+
+  function handleNudge(dx: number, dy: number) {
+    if (selectedObjectIds.length === 0 || role === "view") return;
+    const toMove = objectsRef.current.filter((o) =>
+      selectedObjectIds.includes(o.id),
+    );
+    if (toMove.length === 0) return;
+
+    const updates: Array<{
+      id: string;
+      prev: Partial<BoardObject>;
+      next: Partial<BoardObject>;
+    }> = [];
+
+    setObjects((current) =>
+      current.map((o) => {
+        if (!selectedObjectIds.includes(o.id)) return o;
+        return moveObject(o, dx, dy);
+      }),
+    );
+
+    for (const obj of toMove) {
+      const moved = moveObject(obj, dx, dy);
+      // biome-ignore lint/suspicious/noExplicitAny: patch spans discriminated union fields
+      const patch: any = {};
+      // biome-ignore lint/suspicious/noExplicitAny: prev spans discriminated union fields
+      const prev: any = {};
+
+      if (obj.type === "stroke" && moved.type === "stroke") {
+        patch.points = moved.points;
+        prev.points = obj.points;
+      } else if (
+        (obj.type === "rectangle" ||
+          obj.type === "text" ||
+          obj.type === "note") &&
+        (moved.type === "rectangle" ||
+          moved.type === "text" ||
+          moved.type === "note")
+      ) {
+        patch.x = moved.x;
+        patch.y = moved.y;
+        prev.x = obj.x;
+        prev.y = obj.y;
+      } else if (obj.type === "ellipse" && moved.type === "ellipse") {
+        patch.cx = moved.cx;
+        patch.cy = moved.cy;
+        prev.cx = obj.cx;
+        prev.cy = obj.cy;
+      }
+
+      sendRaw("object.update", { id: obj.id, patch });
+      updates.push({ id: obj.id, prev, next: patch });
+    }
+
+    if (updates.length > 0) {
+      pushUndo({ kind: "update", updates });
+    }
   }
 
   function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
@@ -1145,12 +1282,15 @@ export function BoardPage() {
           roleLabel={role}
           undoCount={undoCount}
           redoCount={redoCount}
+          selectedCount={selectedObjectIds.length}
           checkpoints={checkpoints}
           selectedCheckpointId={selectedCheckpointId}
           onToolChange={setTool}
           onExportPng={handleExportPng}
           onUndo={handleUndo}
           onRedo={handleRedo}
+          onDuplicate={handleDuplicate}
+          onArrange={handleArrange}
           onSaveCheckpoint={handleSaveCheckpoint}
           onSelectCheckpoint={setSelectedCheckpointId}
           onRestoreCheckpoint={handleRestoreCheckpoint}
