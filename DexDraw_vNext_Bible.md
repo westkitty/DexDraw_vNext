@@ -1133,3 +1133,72 @@ pnpm lint                               # 0 errors
 | Hash | Message |
 |------|----------|
 | `5670f7d` | feat: crop PNG export to board content |
+
+---
+
+## Entry 17 — Resize Handles for Selected Objects (2026-05-06)
+
+### Session Goal
+
+Implement corner resize handles for single-selected resizable objects (rectangle, ellipse, note). Resize is optimistic during drag, durable on pointer-up, syncs to other clients, persists across reload, and integrates with undo/redo. Text objects are explicitly excluded.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `apps/client-web/src/lib/resize.ts` | **new** — pure helper module: `ResizeHandle` type, `ResizableBounds` interface, `getBoundsForObject`, `applyResize`, `patchFromBounds`. |
+| `apps/client-web/src/__tests__/resize.test.ts` | **new** — 17 unit tests covering all three helpers: bounds extraction for each object type, resize arithmetic for all four corners, min-size clamping, and patch round-trips. |
+| `apps/client-web/src/components/BoardCanvas.tsx` | Added `ResizeHandles` SVG component (four `<circle>` handles with `data-testid="resize-handle-{nw,ne,sw,se}"`). Added `showResizeHandles`, `onResizeHandlePointerDown` props. Renders handles on top of selection rings when exactly one resizable object is selected. |
+| `apps/client-web/src/components/BoardPage.tsx` | Added resize imports. Added six resize refs (`isResizingRef`, `resizeHandleRef`, `resizeInitialBoundsRef`, `resizeInitialObjectRef`, `resizeStartPosRef`, `resizeCurrentBoundsRef`). Added `handleResizeHandlePointerDown`. Updated `handlePointerMove` and `handlePointerUp` to handle resize mode (resize check runs before drag check). Computed `showResizeHandles` boolean. Passed new props to `BoardCanvas`. |
+| `tests/e2e/resize.spec.ts` | **new** — 4 Playwright tests: rectangle resize syncs to second client + persists; note resize persists; undo/redo after resize; multi-select shows no handles. |
+
+### Why Text Is Excluded
+
+`TextObjectSchema` has no `width` or `height` fields. `getBoundsForObject` returns `null` for text; `BoardCanvas` therefore shows no handles when a text object is the sole selection. Adding text resize would require a protocol schema change, which is out of scope for this tranche.
+
+### Key Decisions
+
+1. **Pure helper module (`resize.ts`)** — resize geometry is isolated from React so it can be unit-tested without DOM mocks.
+2. **`ResizeHandle = "nw" | "ne" | "sw" | "se"`** — corner-only for this version; edge handles deferred.
+3. **Optimistic local updates during drag** — `setObjects` is called on every `pointermove` via `applyCanonicalOperation` for 60fps responsiveness. No server messages are sent until `pointerup`.
+4. **Single `object.update` on pointer-up** — `resizeCurrentBoundsRef` tracks the live bounds during drag so `handlePointerUp` can derive the final patch without depending on `objectsRef` (which may lag async renders).
+5. **No-op guard on pointer-up** — if `JSON.stringify(patch) === JSON.stringify(prev)` (e.g. user clicked handle without moving), no op is sent and nothing is pushed to the undo stack.
+6. **Undo/redo reuses existing `UndoEntry` infrastructure** — a single `{ kind: "update", updates: [{ id, prev, next }] }` entry is pushed; existing `handleUndo`/`handleRedo` handles it correctly.
+7. **`showResizeHandles` gating** — `tool === "select" && selectedObjectIds.length === 1 && !editingObjectId && role !== "view"`. Multi-select (2+ selected) suppresses all handles.
+8. **`biome-ignore noExplicitAny`** — used in two places where the resize patch spans discriminated union fields, consistent with the existing pattern in drag-move code.
+9. **Biome auto-format** — `pnpm exec biome check --write .` fixed line-length formatting in `resize.ts` and import order in `BoardPage.tsx` after initial write.
+
+### Bugs / Blockers
+
+- None. First lint run reported 3 format/import issues; all fixed by `biome check --write` in one pass.
+
+### Commands Run (Gates)
+
+```
+pnpm --filter @dexdraw/client-web test   # 61/61 ✓ (17 new resize tests)
+pnpm typecheck                           # 0 errors
+pnpm lint                                # 0 errors (after biome auto-fix)
+pnpm build                               # pass
+pnpm test                                # 74/74 ✓
+pnpm test:e2e                            # 23/23 ✓ (4 new resize tests)
+```
+
+### State After Completion
+
+- `pnpm lint` passes (0 errors).
+- `pnpm typecheck` passes (all 4 packages).
+- `pnpm test` passes (74 tests: 61 client-web + 13 server-api).
+- `pnpm build` passes.
+- `pnpm test:e2e` passes (23/23).
+  - New tests: rectangle resize sync/persist, note resize persist, undo/redo after resize, multi-select no handles.
+  - All 19 prior tests continue to pass.
+  - Pre-existing Vite `EPIPE` teardown noise in WebServer logs — not test failures, unchanged from prior tranches.
+
+### Next Step / Handoff
+
+Possible next tranches:
+1. **Marquee selection** — drag on empty canvas in Select tool to select all objects inside a rubber-band rect.
+2. **Edge resize handles** — add N/S/E/W mid-edge handles in addition to the four corners.
+3. **Ellipse resize visual** — the ellipse selection ring uses `rx+padding / ry+padding`; the resize handles are at the bounding-box corners which is slightly outside the visual ring. Could align them to the ring if desired.
+4. **Richer presence UI** — avatar bubbles, user list panel, cursor name labels.
+5. **z-order controls** — bring to front / send to back operations.

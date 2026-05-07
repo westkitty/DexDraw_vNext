@@ -14,6 +14,13 @@ import { exportMarkdown, exportSvgToPng, exportToPdf } from "../lib/export";
 import { hitTestObjects } from "../lib/hitTest";
 import { type RemotePresence, mergePresence } from "../lib/presence";
 import {
+  type ResizableBounds,
+  type ResizeHandle,
+  applyResize,
+  getBoundsForObject,
+  patchFromBounds,
+} from "../lib/resize";
+import {
   getBoardShareCode,
   getBoardToken,
   getClientId,
@@ -72,6 +79,13 @@ export function BoardPage() {
   const isDraggingRef = useRef(false);
   const dragStartPosRef = useRef<Point | null>(null);
   const dragInitialObjectsRef = useRef<BoardObject[]>([]);
+
+  const isResizingRef = useRef(false);
+  const resizeHandleRef = useRef<ResizeHandle | null>(null);
+  const resizeInitialBoundsRef = useRef<ResizableBounds | null>(null);
+  const resizeInitialObjectRef = useRef<BoardObject | null>(null);
+  const resizeStartPosRef = useRef<Point | null>(null);
+  const resizeCurrentBoundsRef = useRef<ResizableBounds | null>(null);
 
   useEffect(() => {
     objectsRef.current = objects;
@@ -609,6 +623,35 @@ export function BoardPage() {
     }
   }
 
+  function handleResizeHandlePointerDown(
+    handle: ResizeHandle,
+    event: ReactPointerEvent<SVGCircleElement>,
+  ) {
+    if (role === "view") return;
+    const id = selectedObjectIds[0];
+    if (!id) return;
+    const object = objectsRef.current.find((o) => o.id === id);
+    if (!object) return;
+    const bounds = getBoundsForObject(object);
+    if (!bounds) return;
+
+    const svg = canvasRef.current;
+    if (!svg) return;
+    const svgPoint = svg.createSVGPoint();
+    svgPoint.x = event.clientX;
+    svgPoint.y = event.clientY;
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return;
+    const pt = svgPoint.matrixTransform(matrix.inverse());
+
+    isResizingRef.current = true;
+    resizeHandleRef.current = handle;
+    resizeInitialBoundsRef.current = bounds;
+    resizeInitialObjectRef.current = object;
+    resizeStartPosRef.current = { x: pt.x, y: pt.y };
+    resizeCurrentBoundsRef.current = bounds;
+  }
+
   function handleInlineCommit(id: string, newText: string) {
     setEditingObjectId(null);
     const object = objectsRef.current.find((o) => o.id === id);
@@ -709,6 +752,44 @@ export function BoardPage() {
     );
 
     if (
+      isResizingRef.current &&
+      resizeHandleRef.current &&
+      resizeInitialBoundsRef.current &&
+      resizeInitialObjectRef.current &&
+      resizeStartPosRef.current
+    ) {
+      const dx = point.x - resizeStartPosRef.current.x;
+      const dy = point.y - resizeStartPosRef.current.y;
+      const newBounds = applyResize(
+        resizeInitialBoundsRef.current,
+        resizeHandleRef.current,
+        dx,
+        dy,
+      );
+      resizeCurrentBoundsRef.current = newBounds;
+      const id = resizeInitialObjectRef.current.id;
+      // biome-ignore lint/suspicious/noExplicitAny: resize patch spans discriminated union fields
+      const patch: any = patchFromBounds(
+        resizeInitialObjectRef.current,
+        newBounds,
+      );
+      setObjects((current) =>
+        applyCanonicalOperation(current, {
+          type: "server.op",
+          boardId,
+          serverSeq: -1,
+          clientId,
+          clientSeq: -1,
+          opId: crypto.randomUUID(),
+          opType: "object.update",
+          payload: { id, patch },
+          createdAt: new Date().toISOString(),
+        }),
+      );
+      return;
+    }
+
+    if (
       isDraggingRef.current &&
       dragInitialObjectsRef.current.length > 0 &&
       dragStartPosRef.current
@@ -754,6 +835,38 @@ export function BoardPage() {
   }
 
   function handlePointerUp() {
+    if (
+      isResizingRef.current &&
+      resizeInitialBoundsRef.current &&
+      resizeInitialObjectRef.current
+    ) {
+      const currentBounds = resizeCurrentBoundsRef.current;
+      const initialBounds = resizeInitialBoundsRef.current;
+      const initialObject = resizeInitialObjectRef.current;
+
+      if (currentBounds) {
+        // biome-ignore lint/suspicious/noExplicitAny: resize patch spans discriminated union fields
+        const patch: any = patchFromBounds(initialObject, currentBounds);
+        // biome-ignore lint/suspicious/noExplicitAny: resize prev spans discriminated union fields
+        const prev: any = patchFromBounds(initialObject, initialBounds);
+        if (JSON.stringify(patch) !== JSON.stringify(prev)) {
+          sendRaw("object.update", { id: initialObject.id, patch });
+          pushUndo({
+            kind: "update",
+            updates: [{ id: initialObject.id, prev, next: patch }],
+          });
+        }
+      }
+
+      isResizingRef.current = false;
+      resizeHandleRef.current = null;
+      resizeInitialBoundsRef.current = null;
+      resizeInitialObjectRef.current = null;
+      resizeStartPosRef.current = null;
+      resizeCurrentBoundsRef.current = null;
+      return;
+    }
+
     if (
       isDraggingRef.current &&
       dragInitialObjectsRef.current.length > 0 &&
@@ -955,6 +1068,12 @@ export function BoardPage() {
         )
       : null;
 
+  const showResizeHandles =
+    tool === "select" &&
+    selectedObjectIds.length === 1 &&
+    !editingObjectId &&
+    role !== "view";
+
   return (
     <main className="board-shell">
       <header className="board-topbar">
@@ -1006,11 +1125,13 @@ export function BoardPage() {
           remotePresence={remotePresence}
           selectedObjectIds={selectedObjectIds}
           editingObjectId={editingObjectId}
+          showResizeHandles={showResizeHandles}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onObjectPointerDown={handleObjectPointerDown}
           onObjectDoubleClick={handleObjectDoubleClick}
+          onResizeHandlePointerDown={handleResizeHandlePointerDown}
         />
         {editingObject && canvasRef.current ? (
           <InlineEditor

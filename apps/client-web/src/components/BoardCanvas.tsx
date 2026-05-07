@@ -2,6 +2,7 @@ import { type Point, pointsToSvgPath } from "@dexdraw/shared-core";
 import type { BoardObject } from "@dexdraw/shared-protocol";
 import { forwardRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { type ResizeHandle, getBoundsForObject } from "../lib/resize";
 
 export type PresenceState = {
   clientId: string;
@@ -17,6 +18,7 @@ type BoardCanvasProps = {
   remotePresence: PresenceState[];
   selectedObjectIds: string[];
   editingObjectId?: string | null;
+  showResizeHandles?: boolean;
   onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerUp: () => void;
@@ -25,6 +27,10 @@ type BoardCanvasProps = {
     event: ReactPointerEvent<SVGElement>,
   ) => void;
   onObjectDoubleClick?: (id: string) => void;
+  onResizeHandlePointerDown?: (
+    handle: ResizeHandle,
+    event: ReactPointerEvent<SVGCircleElement>,
+  ) => void;
 };
 
 function pointsToPolyline(points: Point[]) {
@@ -108,6 +114,51 @@ function SelectionRing({ object }: { object: BoardObject }) {
   return null;
 }
 
+const HANDLE_SIZE = 6;
+
+function ResizeHandles({
+  object,
+  onHandlePointerDown,
+}: {
+  object: BoardObject;
+  onHandlePointerDown: (
+    handle: ResizeHandle,
+    event: ReactPointerEvent<SVGCircleElement>,
+  ) => void;
+}) {
+  const bounds = getBoundsForObject(object);
+  if (!bounds) return null;
+
+  const corners: Array<{ handle: ResizeHandle; cx: number; cy: number }> = [
+    { handle: "nw", cx: bounds.x, cy: bounds.y },
+    { handle: "ne", cx: bounds.x + bounds.width, cy: bounds.y },
+    { handle: "sw", cx: bounds.x, cy: bounds.y + bounds.height },
+    { handle: "se", cx: bounds.x + bounds.width, cy: bounds.y + bounds.height },
+  ];
+
+  return (
+    <>
+      {corners.map(({ handle, cx, cy }) => (
+        <circle
+          key={handle}
+          data-testid={`resize-handle-${handle}`}
+          cx={cx}
+          cy={cy}
+          r={HANDLE_SIZE}
+          fill="#f97316"
+          stroke="white"
+          strokeWidth={2}
+          style={{ cursor: `${handle}-resize`, pointerEvents: "all" }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            onHandlePointerDown(handle, e);
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
   function BoardCanvas(
     {
@@ -116,11 +167,13 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
       remotePresence,
       selectedObjectIds,
       editingObjectId,
+      showResizeHandles,
       onPointerDown,
       onPointerMove,
       onPointerUp,
       onObjectPointerDown,
       onObjectDoubleClick,
+      onResizeHandlePointerDown,
     },
     ref,
   ) {
@@ -274,6 +327,20 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
           .map((o) => (
             <SelectionRing key={`sel-${o.id}`} object={o} />
           ))}
+
+        {showResizeHandles &&
+          selectedObjectIds.length === 1 &&
+          onResizeHandlePointerDown &&
+          (() => {
+            const obj = objects.find((o) => o.id === selectedObjectIds[0]);
+            return obj ? (
+              <ResizeHandles
+                key={`resize-${obj.id}`}
+                object={obj}
+                onHandlePointerDown={onResizeHandlePointerDown}
+              />
+            ) : null;
+          })()}
 
         {remotePresence.map((presence) =>
           presence.type === "presence.laser" ? (
