@@ -1,22 +1,37 @@
 # DexDraw vNext
 
-A collaborative, real-time whiteboard — developer prototype / alpha. **Not production-ready.**
+A collaborative, real-time whiteboard. Local-first, self-hosted, server-authoritative.
 
-Built as a reference implementation: SVG canvas, WebSocket sync, durable operation log, checkpoints, PNG/Markdown/PDF export.
+**Status: v0.1.0-rc1 — developer release candidate. Not production-ready.**
 
 ---
 
-## Status
+## Features
 
-Alpha / developer prototype. The sync model, auth, and storage are intentionally minimal:
+- **Real-time collaboration** — multiple clients, WebSocket sync, remote cursors and laser pointer
+- **Drawing tools** — freehand pen, rectangle, ellipse, text, sticky note
+- **Editing** — inline text/note editing, selection, multi-select, marquee, drag, resize
+- **Arrange** — z-order (forward/backward/front/back), duplicate, keyboard nudge
+- **Board title** — editable by owner, synced live to all clients
+- **Checkpoints** — named save points; restore rolls back to that snapshot
+- **Export** — PNG (cropped to content), Markdown, PDF
+- **Undo/redo** — per-client, full history
+- **Reconnect/replay** — clients catch up on missed ops after disconnect
+- **Templates** — Blank and Meeting Grid starter boards
+- **Keyboard shortcuts** — see [Architecture section](#architecture) for full list
+
+---
+
+## Known Limitations
 
 - Auth tokens are signed JWTs stored in `sessionStorage` — no user accounts.
 - Board state is persisted to PGlite (an in-process Postgres) in `.dexdraw-data/` — a local directory, not a production DB.
 - Share codes are generated per-board; anyone with the code can join.
-- No rate limiting beyond in-memory per-connection throttling.
+- No rate limiting beyond in-memory per-connection throttling (60 msg/s per client).
 - No horizontal scaling — one process, one PGlite instance.
+- No JSON import/export, no image objects, no infinite canvas.
 
-Do not deploy this with real user data without replacing the storage and auth layers.
+Do not deploy with real user data without replacing the storage and auth layers.
 
 ## Security Tradeoffs
 
@@ -130,6 +145,9 @@ dexdraw-vnext/
 3. Create a board in tab 1; copy the share code and join from tab 2.
 4. Draw a stroke in tab 1 — confirm it appears in tab 2 within ~100ms.
 5. Export as PNG from the toolbar.
+
+See [`docs/demo-script.md`](docs/demo-script.md) for the full 5-minute demo walkthrough.
+See [`docs/release-checklist.md`](docs/release-checklist.md) for the pre-release verification checklist.
 
 ---
 
