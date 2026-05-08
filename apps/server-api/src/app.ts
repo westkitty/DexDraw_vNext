@@ -24,9 +24,9 @@ import { canPerformDurableOp } from "./auth/roles";
 import { createBoardToken, verifyBoardToken } from "./auth/token";
 import { type DexDrawStore, createStore } from "./db/store";
 
-const MAX_MESSAGE_BYTES = 5000 * 1024;
+const MAX_MESSAGE_BYTES = 64 * 1024;
 const RATE_LIMIT_WINDOW_MS = 1_000;
-const RATE_LIMIT_MAX_MESSAGES = 5000;
+const RATE_LIMIT_MAX_MESSAGES = 60;
 
 type BuildAppOptions = {
   dataDir?: string;
