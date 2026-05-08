@@ -77,9 +77,12 @@ export function boundsFromBoardObjects(
   };
 }
 
-export function boardToMarkdown(objects: BoardObject[]): string {
+export function boardToMarkdown(
+  objects: BoardObject[],
+  title = "DexDraw Board",
+): string {
   const sorted = [...objects].sort((a, b) => a.zIndex - b.zIndex);
-  const lines: string[] = ["# DexDraw Board", ""];
+  const lines: string[] = [`# ${title}`, ""];
 
   for (const obj of sorted) {
     if (obj.type === "text") {
@@ -100,8 +103,12 @@ export function boardToMarkdown(objects: BoardObject[]): string {
   return lines.join("\n");
 }
 
-export function exportMarkdown(objects: BoardObject[], filename: string): void {
-  const md = boardToMarkdown(objects);
+export function exportMarkdown(
+  objects: BoardObject[],
+  filename: string,
+  title?: string,
+): void {
+  const md = boardToMarkdown(objects, title);
   const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -132,11 +139,15 @@ export function computeCropViewBox(
   };
 }
 
-export function exportToPdf(svgEl: SVGSVGElement, filename: string): void {
+export function exportToPdf(
+  svgEl: SVGSVGElement,
+  filename: string,
+  docTitle?: string,
+): void {
   const printWindow = window.open("", "_blank");
   if (!printWindow) return;
   const titleEl = printWindow.document.createElement("title");
-  titleEl.textContent = filename;
+  titleEl.textContent = docTitle ?? filename;
   printWindow.document.head.appendChild(titleEl);
   const style = printWindow.document.createElement("style");
   style.textContent =

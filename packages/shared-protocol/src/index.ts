@@ -207,6 +207,20 @@ export const ServerWelcomeSchema = z.object({
   role: RoleSchema,
   serverSeq: z.number().int().nonnegative(),
   snapshot: z.array(BoardObjectSchema),
+  boardTitle: z.string(),
+});
+
+export const ServerBoardTitleUpdateSchema = z.object({
+  type: z.literal("server.board_title_update"),
+  boardId: z.string().uuid(),
+  title: z.string(),
+});
+export type ServerBoardTitleUpdate = z.infer<
+  typeof ServerBoardTitleUpdateSchema
+>;
+
+export const BoardTitleUpdateRequestSchema = z.object({
+  title: z.string().min(1).max(120),
 });
 
 export const ServerSnapshotResetSchema = z.object({

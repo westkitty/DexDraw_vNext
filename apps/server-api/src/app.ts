@@ -1,6 +1,7 @@
 import {
   BoardCreateRequestSchema,
   type BoardObject,
+  BoardTitleUpdateRequestSchema,
   type ClientOpEnvelope,
   ClientOpEnvelopeSchema,
   JoinBoardRequestSchema,
@@ -8,6 +9,7 @@ import {
   PresenceMessageSchema,
   type Role,
   RoleSchema,
+  ServerBoardTitleUpdateSchema,
   ServerErrorSchema,
   ServerWelcomeSchema,
   SnapshotResponseSchema,
@@ -332,6 +334,58 @@ export async function buildApp(options: BuildAppOptions = {}) {
     );
   });
 
+  app.patch("/api/boards/:boardId/title", async (request, reply) => {
+    const params = request.params as { boardId: string };
+    const authorization = request.headers.authorization;
+    const token = authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+
+    if (!token) {
+      return reply
+        .status(401)
+        .send(createServerError("unauthorized", "Missing token.", false));
+    }
+
+    const verified = await verifyBoardToken(tokenSecret, token).catch(
+      () => null,
+    );
+    if (!verified || verified.boardId !== params.boardId) {
+      return reply
+        .status(403)
+        .send(createServerError("unauthorized", "Invalid token.", false));
+    }
+
+    if (verified.role !== "owner") {
+      return reply
+        .status(403)
+        .send(
+          createServerError(
+            "forbidden",
+            "Only the owner can rename the board.",
+            false,
+          ),
+        );
+    }
+
+    const payload = BoardTitleUpdateRequestSchema.parse(request.body);
+    await store.updateBoardTitle(params.boardId, payload.title);
+
+    const broadcast = ServerBoardTitleUpdateSchema.parse({
+      type: "server.board_title_update",
+      boardId: params.boardId,
+      title: payload.title,
+    });
+    const room = rooms.get(params.boardId);
+    if (room) {
+      for (const peer of room) {
+        sendJson(peer.socket, broadcast);
+      }
+    }
+
+    return reply.send({ boardId: params.boardId, title: payload.title });
+  });
+
   app.get(
     "/ws/boards/:boardId",
     { websocket: true },
@@ -364,7 +418,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
       room.add(context);
       rooms.set(params.boardId, room);
 
-      const initialOps = await store.getOps(params.boardId);
+      const [initialOps, boardRecord] = await Promise.all([
+        store.getOps(params.boardId),
+        store.getBoard(params.boardId),
+      ]);
       sendJson(
         socket,
         ServerWelcomeSchema.parse({
@@ -373,6 +430,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
           role: verified.role,
           serverSeq: initialOps.at(-1)?.serverSeq ?? 0,
           snapshot: snapshotFromOps(initialOps),
+          boardTitle: boardRecord?.name ?? "Untitled Board",
         }),
       );
 

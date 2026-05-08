@@ -194,6 +194,7 @@ test.describe("selection hardening", () => {
     await expect(page.getByTestId("selection-count")).toHaveText("1 selected");
 
     // Restore the checkpoint — the second rect won't exist anymore
+    page.once("dialog", (dialog) => dialog.accept());
     await page.getByTestId("restore-button").click();
     // After restore, selection should be cleared (second rect no longer exists)
     await expect(page.getByTestId("selection-count")).not.toBeVisible();

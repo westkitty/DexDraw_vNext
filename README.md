@@ -102,7 +102,24 @@ dexdraw-vnext/
 
 **Sync model:** Clients connect via WebSocket. Each mutation is a `ClientOpEnvelope` — the server assigns a `serverSeq`, persists it to PGlite, and broadcasts `ServerOpEnvelope` to all peers in the room. On reconnect, clients replay from their last known `serverSeq` via `GET /api/boards/:id/ops?since=N`.
 
-**Checkpoints:** A `checkpoint.create` op marks a point-in-time snapshot name. `checkpoint.restore` replays the op log up to that checkpoint and broadcasts a `server.snapshot_reset` to all peers.
+**Checkpoints:** A `checkpoint.create` op marks a point-in-time snapshot name. `checkpoint.restore` replays the op log up to that checkpoint and broadcasts a `server.snapshot_reset` to all peers. The checkpoint dropdown shows each checkpoint's name and creation timestamp. Restoring requires confirmation.
+
+**Board title:** The board name is editable by the owner after creation. Click the title in the header to rename; the change is persisted via `PATCH /api/boards/:boardId/title` and broadcast to all connected clients as `server.board_title_update`.
+
+**Keyboard shortcuts (select mode):**
+
+| Shortcut | Action |
+|---|---|
+| Cmd/Ctrl+Z | Undo |
+| Cmd/Ctrl+Shift+Z / Cmd/Ctrl+Y | Redo |
+| Cmd/Ctrl+D | Duplicate selection |
+| Cmd/Ctrl+] | Bring forward |
+| Cmd/Ctrl+Shift+] | Bring to front |
+| Cmd/Ctrl+[ | Send backward |
+| Cmd/Ctrl+Shift+[ | Send to back |
+| Delete / Backspace | Delete selection |
+| Arrow keys | Nudge (8px); Shift+Arrow = 32px |
+| Escape | Deselect |
 
 ---
 

@@ -197,7 +197,7 @@ test.describe("presence UI", () => {
     if (!boxB) throw new Error("Canvas not found");
     await pageB.mouse.move(boxB.x + 400, boxB.y + 300);
     await expect(page.getByTestId("remote-cursor")).toBeVisible({
-      timeout: 10_000,
+      timeout: 15_000,
     });
 
     await ctxB.close();

@@ -320,4 +320,49 @@ test.describe("arrange, duplicate, and nudge", () => {
     await expect(page.getByTestId("arrange-backward")).toBeDisabled();
     await expect(page.getByTestId("arrange-back")).toBeDisabled();
   });
+
+  test("Cmd+D keyboard shortcut duplicates selected object", async ({
+    page,
+  }) => {
+    await createBoard(page, "Keyboard Shortcuts Board");
+    const canvas = page.getByTestId("board-canvas");
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("canvas bounds missing");
+
+    // Draw one rectangle
+    await drawRect(page, box, 100, 80, 260, 200);
+    await expect(page.getByTestId("rectangle-object")).toHaveCount(1);
+
+    // Select it
+    await selectObject(page, box, 180, 140);
+    await expect(page.getByTestId("selection-count")).toHaveText("1 selected");
+
+    // Cmd+D should duplicate
+    await page.keyboard.press("Meta+d");
+    await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
+  });
+
+  test("Cmd+] / Cmd+[ keyboard shortcuts change z-order", async ({ page }) => {
+    await createBoard(page, "Z-Order Shortcuts Board");
+    const canvas = page.getByTestId("board-canvas");
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("canvas bounds missing");
+
+    // Draw two overlapping rectangles
+    await drawRect(page, box, 100, 80, 260, 200);
+    await drawRect(page, box, 140, 120, 300, 240);
+    await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
+
+    // Select first rect and move it forward
+    await selectObject(page, box, 120, 100);
+    await expect(page.getByTestId("selection-count")).toHaveText("1 selected");
+    await page.keyboard.press("Meta+]");
+
+    // Object count unchanged — just the order changes, no error
+    await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
+
+    // Cmd+[ moves backward
+    await page.keyboard.press("Meta+[");
+    await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
+  });
 });

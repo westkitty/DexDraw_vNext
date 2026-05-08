@@ -255,6 +255,13 @@ export async function createStore(
       }); // end serialized
     },
 
+    async updateBoardTitle(boardId: string, title: string) {
+      await db
+        .update(boards)
+        .set({ name: title })
+        .where(eq(boards.id, boardId));
+    },
+
     async close() {
       await client.close();
     },

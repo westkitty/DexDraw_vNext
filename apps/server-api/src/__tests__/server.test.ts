@@ -630,6 +630,135 @@ describe("server api", () => {
     await app.close();
   });
 
+  it("PATCH /api/boards/:boardId/title updates title and broadcasts to WS clients", async () => {
+    const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
+    await app.listen({ port: 0, host: "127.0.0.1" });
+
+    const address = new URL(
+      `http://127.0.0.1:${getPort(app.server.address() as AddressInfo | string | null)}`,
+    );
+
+    const created = (await fetch(new URL("/api/boards", address), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Original Name",
+        templateId: "blank",
+        displayName: "Owner",
+      }),
+    }).then((r) => r.json())) as { boardId: string; ownerToken: string };
+
+    // Connect a WS client to receive broadcasts
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${address.port}/ws/boards/${created.boardId}?token=${created.ownerToken}`,
+    );
+    await new Promise<void>((resolve, reject) => {
+      socket.addEventListener("open", () => resolve(), { once: true });
+      socket.addEventListener("error", (e) => reject(e), { once: true });
+    });
+
+    // Consume the welcome message
+    await new Promise<void>((resolve) => {
+      socket.addEventListener("message", () => resolve(), { once: true });
+    });
+
+    // Register listener BEFORE the PATCH so we don't miss the broadcast
+    const broadcastPromise = new Promise<unknown>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("timeout waiting for broadcast")),
+        3000,
+      );
+      socket.addEventListener(
+        "message",
+        (event) => {
+          clearTimeout(timeout);
+          resolve(JSON.parse(String(event.data)));
+        },
+        { once: true },
+      );
+    });
+
+    // Rename the board
+    const patchResp = await fetch(
+      new URL(`/api/boards/${created.boardId}/title`, address),
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${created.ownerToken}`,
+        },
+        body: JSON.stringify({ title: "Renamed Board" }),
+      },
+    );
+    expect(patchResp.status).toBe(200);
+    expect(await patchResp.json()).toMatchObject({ title: "Renamed Board" });
+
+    const broadcastMsg = await broadcastPromise;
+    expect(broadcastMsg).toMatchObject({
+      type: "server.board_title_update",
+      boardId: created.boardId,
+      title: "Renamed Board",
+    });
+
+    // server.welcome should contain updated boardTitle after reconnect
+    const newSocket = new WebSocket(
+      `ws://127.0.0.1:${address.port}/ws/boards/${created.boardId}?token=${created.ownerToken}`,
+    );
+    const welcomeMsg = await new Promise<unknown>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("timeout waiting for welcome")),
+        3000,
+      );
+      newSocket.addEventListener(
+        "message",
+        (event) => {
+          clearTimeout(timeout);
+          resolve(JSON.parse(String(event.data)));
+        },
+        { once: true },
+      );
+    });
+    expect(welcomeMsg).toMatchObject({
+      type: "server.welcome",
+      boardTitle: "Renamed Board",
+    });
+
+    socket.close();
+    newSocket.close();
+    await app.close();
+  });
+
+  it("PATCH title returns 403 for non-owner tokens", async () => {
+    const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/boards",
+      payload: { name: "My Board", templateId: "blank", displayName: "Owner" },
+    });
+    const board = created.json() as {
+      boardId: string;
+      shareCode: string;
+    };
+
+    const joined = await app.inject({
+      method: "POST",
+      url: `/api/boards/${board.boardId}/join`,
+      payload: { displayName: "Guest", shareCode: board.shareCode },
+    });
+    const { token: editToken } = joined.json() as { token: string };
+
+    const patchResp = await app.inject({
+      method: "PATCH",
+      url: `/api/boards/${board.boardId}/title`,
+      headers: { authorization: `Bearer ${editToken}` },
+      payload: { title: "Hacked Name" },
+    });
+    expect(patchResp.statusCode).toBe(403);
+
+    await app.close();
+  });
+
   it("returns valid ops for a board created from a non-blank template", async () => {
     const { app } = await buildApp({ dataDir, tokenSecret: "test-secret-key" });
 

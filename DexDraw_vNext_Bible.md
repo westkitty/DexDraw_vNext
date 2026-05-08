@@ -1662,3 +1662,71 @@ pnpm exec playwright test                            → 65/65 ✓
 ```
 
 **Commit:** `b4bee50`
+
+---
+
+### Entry 22 — Tranche 22: Board Management, Checkpoint Polish, Shortcuts, Export
+
+**Date:** 2026-05-08
+
+#### Sub-Entry 22.0 — Session Start / P1 Reconciliation
+
+**Repo path:** `/Users/andrew/Library/Mobile Documents/com~apple~CloudDocs/Projects/DexDraw`
+**Remote:** `git@github.com:westkitty/DexDraw_vNext.git`
+**Branch/HEAD:** `main` @ `4bb5698`
+**State:** clean
+
+**Bible Entry 21 confirmed:**
+- Both commits present: `b4bee50` (stabilization) and `4bb5698` (Bible docs)
+- Baseline: 113/113 unit ✓, 13/13 server ✓, typecheck ✓, lint ✓
+
+**Intended scope:** board title, checkpoint polish, keyboard shortcuts, export slugs, docs
+
+**Next step:** Implement Priority 2 — Board title feature
+
+---
+
+#### Sub-Entry 22.1 — Tranche 22 Complete
+
+**Commit:** (see below)
+
+**Work completed:**
+
+**P2 — Board title:**
+- `packages/shared-protocol`: added `boardTitle: z.string()` to `ServerWelcomeSchema`; added `ServerBoardTitleUpdateSchema`, `BoardTitleUpdateRequestSchema`
+- `apps/server-api/db/store.ts`: added `updateBoardTitle(boardId, title)` method
+- `apps/server-api/src/app.ts`: `server.welcome` now includes `boardTitle` from DB; added `PATCH /api/boards/:boardId/title` (owner-only, persists to DB, broadcasts `server.board_title_update` to all WS peers)
+- `apps/client-web/BoardPage.tsx`: `boardTitle` state; `server.welcome` and `server.board_title_update` handlers; inline `BoardTitleInput` component (click-to-edit for owners only, Enter/Escape/blur commit); `titleSlug()` for export filenames
+- `apps/client-web/styles.css`: `.board-title`, `.board-title--editable`, `.board-title-input` styles
+- Export filenames now use board title slug: `<title>.png`, `<title>.md`, `<title>.pdf`; Markdown heading uses board title; PDF window title uses board title
+- Server tests: 2 new (PATCH title + broadcast, 403 for non-owner); E2E: `board-title.spec.ts` (4 tests: display, rename, persist reload, WS broadcast)
+
+**P3 — Checkpoint polish:**
+- Checkpoint dropdown now shows timestamps (`name — MMM D, HH:MM`)
+- After saving a checkpoint, it auto-selects (previously only selected the first ever checkpoint)
+- Restore button now shows `window.confirm("Restore...?")` before sending op
+- Updated `checkpoint.spec.ts` and `selection-hardening.spec.ts` to handle the new confirm dialog
+
+**P4 — Object keyboard shortcuts:**
+- `onKeyDown` handler extended: Cmd/Ctrl+D → duplicate, Cmd/Ctrl+] → forward, Cmd/Ctrl+[ → backward, Cmd/Ctrl+Shift+] → front, Cmd/Ctrl+Shift+[ → back
+- Guard: `editingObjectId` early return already prevents firing during inline edit
+- Toolbar arrange buttons updated with `title` tooltips showing shortcut notation
+- `arrange-duplicate-nudge.spec.ts`: 2 new tests (Cmd+D, Cmd+]/[)
+
+**P5 (covered in P2):** Export filenames/titles use board title slug. Markdown heading uses board title.
+
+**P6 (handled by design):** Title survives reconnect because `server.welcome` always sends `boardTitle` from DB.
+
+**P7 — Docs:**
+- `README.md`: added Keyboard Shortcuts table, Board title section, Checkpoint section update
+- `docs/testing.md`: new file — testing guide with E2E test inventory, conventions, `data-testid` naming
+
+**Verification:**
+```
+pnpm --filter @dexdraw/client-web test   → 113/113 ✓
+pnpm --filter @dexdraw/server-api test   → 15/15 ✓
+pnpm typecheck                           → clean ✓
+pnpm lint                                → clean ✓
+pnpm build                               → clean ✓
+pnpm exec playwright test               → 71/71 ✓
+```

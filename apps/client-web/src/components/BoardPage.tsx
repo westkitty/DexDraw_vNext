@@ -7,7 +7,10 @@ import type {
   ServerOpEnvelope,
 } from "@dexdraw/shared-protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { useParams } from "react-router-dom";
 import { applyCanonicalOperation } from "../lib/boardState";
 import { exportMarkdown, exportSvgToPng, exportToPdf } from "../lib/export";
@@ -74,6 +77,7 @@ export function BoardPage() {
   const [marquee, setMarquee] = useState<MarqueeRect | null>(null);
   const [undoCount, setUndoCount] = useState(0);
   const [redoCount, setRedoCount] = useState(0);
+  const [boardTitle, setBoardTitle] = useState("Untitled Board");
   const [checkpoints, setCheckpoints] = useState<CheckpointSummary[]>([]);
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<
     string | null
@@ -272,6 +276,7 @@ export function BoardPage() {
         if (message.type === "server.welcome") {
           const previousSeq = serverSeqRef.current;
           setRole(message.role);
+          setBoardTitle(message.boardTitle ?? "Untitled Board");
           serverSeqRef.current = message.serverSeq;
           // Clear stale pending seqs from before the disconnect; any ops that
           // weren't echoed are now reflected in the server state we're receiving.
@@ -312,6 +317,11 @@ export function BoardPage() {
           return;
         }
 
+        if (message.type === "server.board_title_update") {
+          setBoardTitle(message.title);
+          return;
+        }
+
         if (message.type === "server.op") {
           serverSeqRef.current = Math.max(
             serverSeqRef.current,
@@ -327,15 +337,15 @@ export function BoardPage() {
           }
           if (message.opType === "checkpoint.create") {
             const payload = message.payload as { id: string; name: string };
-            setCheckpoints((prev) => [
-              ...prev,
-              {
-                id: payload.id,
-                name: payload.name,
-                serverSeq: message.serverSeq,
-                createdAt: message.createdAt,
-              },
-            ]);
+            const newCp = {
+              id: payload.id,
+              name: payload.name,
+              serverSeq: message.serverSeq,
+              createdAt: message.createdAt,
+            };
+            setCheckpoints((prev) => [...prev, newCp]);
+            // Auto-select the newly saved checkpoint
+            setSelectedCheckpointId(payload.id);
           } else if (!isSelfEcho) {
             setObjects((current) =>
               applyCanonicalOperation(current, message as ServerOpEnvelope),
@@ -679,6 +689,30 @@ export function BoardPage() {
       ) {
         e.preventDefault();
         handleRedo();
+        return;
+      }
+      if (
+        e.key === "d" &&
+        (e.ctrlKey || e.metaKey) &&
+        selectedObjectIds.length > 0 &&
+        role !== "view"
+      ) {
+        e.preventDefault();
+        handleDuplicate();
+        return;
+      }
+      if (
+        (e.key === "]" || e.key === "[") &&
+        (e.ctrlKey || e.metaKey) &&
+        selectedObjectIds.length > 0 &&
+        role !== "view"
+      ) {
+        e.preventDefault();
+        if (e.key === "]") {
+          handleArrange(e.shiftKey ? "front" : "forward");
+        } else {
+          handleArrange(e.shiftKey ? "back" : "backward");
+        }
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -1300,9 +1334,35 @@ export function BoardPage() {
     setCurrentStroke([]);
   }
 
+  function titleSlug() {
+    return (
+      boardTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "board"
+    );
+  }
+
+  async function handleRenameBoard(newTitle: string) {
+    if (!token || newTitle === boardTitle) return;
+    try {
+      await fetch(`/api/boards/${boardId}/title`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: newTitle }),
+      });
+      // Server broadcasts server.board_title_update which will update state
+    } catch {
+      // Network error — title will revert on next reconnect
+    }
+  }
+
   async function handleExportPng() {
     if (!canvasRef.current || objects.length === 0) return;
-    await exportSvgToPng(canvasRef.current, `dexdraw-${boardId}.png`, objects, {
+    await exportSvgToPng(canvasRef.current, `${titleSlug()}.png`, objects, {
       cropToContent: true,
       padding: 32,
     });
@@ -1310,12 +1370,12 @@ export function BoardPage() {
 
   function handleExportMarkdown() {
     if (objects.length === 0) return;
-    exportMarkdown(objects, `dexdraw-${boardId}.md`);
+    exportMarkdown(objects, `${titleSlug()}.md`, boardTitle);
   }
 
   function handleExportPdf() {
     if (!canvasRef.current || objects.length === 0) return;
-    exportToPdf(canvasRef.current, `dexdraw-${boardId}.pdf`);
+    exportToPdf(canvasRef.current, `${titleSlug()}.pdf`, boardTitle);
   }
 
   function handleSaveCheckpoint() {
@@ -1329,6 +1389,15 @@ export function BoardPage() {
 
   function handleRestoreCheckpoint() {
     if (!selectedCheckpointId) return;
+    const cp = checkpoints.find((c) => c.id === selectedCheckpointId);
+    const label = cp ? `"${cp.name}"` : "this checkpoint";
+    if (
+      !window.confirm(
+        `Restore ${label}? All changes made after this checkpoint will be lost.`,
+      )
+    ) {
+      return;
+    }
     setSelectedObjectIds([]);
     setEditingObjectId(null);
     sendRaw("checkpoint.restore", { id: selectedCheckpointId });
@@ -1353,7 +1422,11 @@ export function BoardPage() {
     <main className="board-shell">
       <header className="board-topbar">
         <div className="meta-group">
-          <strong>DexDraw vNext</strong>
+          <BoardTitleInput
+            title={boardTitle}
+            canEdit={role === "owner"}
+            onCommit={handleRenameBoard}
+          />
           <span className="meta-line" data-testid="board-id">
             {boardId}
           </span>
@@ -1432,5 +1505,73 @@ export function BoardPage() {
         ) : null}
       </section>
     </main>
+  );
+}
+
+function BoardTitleInput({
+  title,
+  canEdit,
+  onCommit,
+}: {
+  title: string;
+  canEdit: boolean;
+  onCommit: (newTitle: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync external title changes into draft when not editing
+  useEffect(() => {
+    if (!editing) setDraft(title);
+  }, [title, editing]);
+
+  function startEdit() {
+    if (!canEdit) return;
+    setDraft(title);
+    setEditing(true);
+    requestAnimationFrame(() => inputRef.current?.select());
+  }
+
+  function commit() {
+    const trimmed = draft.trim();
+    setEditing(false);
+    if (trimmed && trimmed !== title) onCommit(trimmed);
+    else setDraft(title);
+  }
+
+  function handleKeyDown(e: ReactKeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") commit();
+    if (e.key === "Escape") {
+      setEditing(false);
+      setDraft(title);
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className="board-title-input"
+        data-testid="board-title-input"
+        value={draft}
+        maxLength={120}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+      />
+    );
+  }
+
+  return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: title rename is a mouse-primary interaction; keyboard users can tab to the input via focus
+    <strong
+      className={`board-title${canEdit ? " board-title--editable" : ""}`}
+      data-testid="board-title"
+      onClick={startEdit}
+      title={canEdit ? "Click to rename" : undefined}
+    >
+      {title}
+    </strong>
   );
 }

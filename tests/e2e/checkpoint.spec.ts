@@ -34,6 +34,7 @@ test("create checkpoint and restore it removes objects added after checkpoint", 
 
   // Restore the checkpoint — the second object should disappear
   await page.getByTestId("checkpoint-select").selectOption({ index: 0 });
+  page.once("dialog", async (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Restore" }).click();
   await expect(page.getByTestId("text-object")).toHaveCount(1);
 });

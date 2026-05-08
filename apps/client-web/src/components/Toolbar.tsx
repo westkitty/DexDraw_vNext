@@ -122,6 +122,7 @@ export function Toolbar({
         onClick={() => onArrange("front")}
         disabled={!hasSelection || !canDraw}
         aria-label="Bring to front"
+        title="Bring to front (⌘⇧])"
       >
         Front
       </button>
@@ -132,6 +133,7 @@ export function Toolbar({
         onClick={() => onArrange("forward")}
         disabled={!hasSelection || !canDraw}
         aria-label="Bring forward"
+        title="Bring forward (⌘])"
       >
         Forward
       </button>
@@ -142,6 +144,7 @@ export function Toolbar({
         onClick={() => onArrange("backward")}
         disabled={!hasSelection || !canDraw}
         aria-label="Send backward"
+        title="Send backward (⌘[)"
       >
         Backward
       </button>
@@ -152,6 +155,7 @@ export function Toolbar({
         onClick={() => onArrange("back")}
         disabled={!hasSelection || !canDraw}
         aria-label="Send to back"
+        title="Send to back (⌘⇧[)"
       >
         Back
       </button>
@@ -177,11 +181,20 @@ export function Toolbar({
           value={selectedCheckpointId ?? ""}
           onChange={(e) => onSelectCheckpoint(e.target.value)}
         >
-          {checkpoints.map((cp) => (
-            <option key={cp.id} value={cp.id}>
-              {cp.name}
-            </option>
-          ))}
+          {checkpoints.map((cp) => {
+            const date = new Date(cp.createdAt);
+            const ts = date.toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            return (
+              <option key={cp.id} value={cp.id}>
+                {cp.name} — {ts}
+              </option>
+            );
+          })}
         </select>
       ) : null}
 
