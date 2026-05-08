@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 const ENTERED_KEY = "dexdraw-entered";
 
@@ -22,6 +23,15 @@ function markEntered(): void {
 export function Gateway({ children }: { children: ReactNode }) {
   const [entered, setEntered] = useState(hasEntered);
   const [exiting, setExiting] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   function handleEnter() {
     markEntered();
@@ -33,7 +43,7 @@ export function Gateway({ children }: { children: ReactNode }) {
     } else {
       setExiting(true);
       // transition duration matches .gateway--exiting CSS (600ms)
-      setTimeout(() => setEntered(true), 600);
+      timeoutRef.current = setTimeout(() => setEntered(true), 600);
     }
   }
 
