@@ -2265,3 +2265,56 @@ bash scripts/verify.sh --e2e
 
 v0.1.0-rc1 is now verified for fresh-clone release. All 79 E2E tests pass reliably with no proxy/socket errors. The release verification command (`bash scripts/verify.sh --e2e`) is stable and can be used as the official release gate.
 
+
+## Entry 29 — Final fresh-clone E2E reliability fix
+
+Summary:
+- Fixed the remaining fresh-clone E2E instability that caused intermittent API unavailability during `bash scripts/verify.sh --e2e`.
+
+Reason / Intent:
+- Fresh-clone verification still failed with Vite proxy errors for `/api/templates`, `/api/boards`, `ECONNREFUSED`, and `socket hang up`.
+- The release candidate could not be considered valid until the official verification command passed reliably from a clean clone.
+
+Root Cause:
+- The E2E PGlite data directory was inside the repository/iCloud-backed project path.
+- During full-suite E2E runs, that caused file locking, slow I/O, and API instability.
+- The API server could become unreachable mid-suite, producing Vite proxy failures and downstream board-creation failures.
+
+Fix:
+- Added support for `DEXDRAW_DATA_DIR`.
+- Configured E2E verification to use an isolated temporary data directory at `/tmp/dexdraw-e2e-data`.
+- The E2E orchestration now avoids using the iCloud-backed repo path for transient database state.
+
+Files Changed:
+- `apps/server-api/src/db/store.ts`
+- `scripts/start-dev-servers.sh`
+
+Commands Run:
+- `pnpm test:e2e --workers=1`
+- `bash scripts/verify.sh --e2e`
+- `git status --short`
+- `git log --oneline -5`
+
+Results:
+- Real repo E2E passed: 79/79.
+- Official verification passed: `bash scripts/verify.sh --e2e`.
+- Fresh-clone verification from GitHub passed.
+- Working tree was clean after the fix commit.
+
+Commit Hashes:
+- Reliability fix commit: `8285174`
+
+State After Completion:
+- DexDraw vNext RC now passes the official release verification command from a fresh clone without the prior API lifecycle failures.
+
+Known Gaps:
+- None blocking RC verification.
+- Future product features may still be added later, but the local release candidate is now testable and showable.
+
+Next Step / Handoff:
+- Commit this Bible entry.
+- Move `v0.1.0-rc1` to the resulting Bible commit.
+- Push `main`.
+- Force-push the tag.
+- Verify remote hashes.
+
