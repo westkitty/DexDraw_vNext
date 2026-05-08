@@ -2,12 +2,14 @@
 set -euo pipefail
 
 # Start DexDraw dev servers for E2E testing with robust process monitoring.
+# Uses temp directory for E2E data to avoid iCloud file locking issues.
 # Ensures API is ready before client starts, monitors health during test run.
 
 API_PORT=${API_PORT:-4000}
 API_HOST=${API_HOST:-127.0.0.1}
 CLIENT_PORT=${CLIENT_PORT:-5173}
 CLIENT_HOST=${CLIENT_HOST:-127.0.0.1}
+E2E_DATA_DIR=${DEXDRAW_DATA_DIR:-/tmp/dexdraw-e2e-data}
 API_HEALTH_URL="http://${API_HOST}:${API_PORT}/health"
 CLIENT_URL="http://${CLIENT_HOST}:${CLIENT_PORT}"
 API_PROXY_URL="http://${CLIENT_HOST}:${CLIENT_PORT}/api/templates"
@@ -43,26 +45,28 @@ trap cleanup EXIT
 echo "Starting DexDraw dev servers..."
 echo "API: $API_HEALTH_URL"
 echo "Client: $CLIENT_URL"
+echo "E2E data dir: $E2E_DATA_DIR"
 echo "Proxy check: $API_PROXY_URL"
 echo ""
 
 # Kill any stale processes
 kill_stale_processes
 
-# Clean database before E2E to avoid stale/locked state
-DB_DIR="apps/server-api/.dexdraw-data"
-if [[ -d "$DB_DIR" ]]; then
-  echo "Cleaning database directory..."
-  rm -rf "$DB_DIR"
+# Clean E2E database directory before starting
+echo "Preparing E2E environment..."
+if [[ -d "$E2E_DATA_DIR" ]]; then
+  echo "Removing stale E2E data directory..."
+  rm -rf "$E2E_DATA_DIR"
 fi
+mkdir -p "$E2E_DATA_DIR"
 
 echo "Starting API server (port $API_PORT)..."
-pnpm --filter @dexdraw/server-api dev &
+DEXDRAW_DATA_DIR="$E2E_DATA_DIR" pnpm --filter @dexdraw/server-api dev &
 API_PID=$!
 
 # Wait for API health endpoint with timeout
 echo "Waiting for API to be ready..."
-TIMEOUT=30
+TIMEOUT=45
 ELAPSED=0
 while ! curl -sf "$API_HEALTH_URL" > /dev/null 2>&1; do
   if [[ $ELAPSED -ge $TIMEOUT ]]; then
@@ -86,6 +90,7 @@ CLIENT_PID=$!
 
 # Wait for client with timeout
 echo "Waiting for client to be ready..."
+TIMEOUT=45
 ELAPSED=0
 while ! curl -sf "$CLIENT_URL" > /dev/null 2>&1; do
   if [[ $ELAPSED -ge $TIMEOUT ]]; then
@@ -105,12 +110,23 @@ echo "Client is ready after ${ELAPSED}s"
 
 # Verify that the Vite proxy to /api works (critical: ensures API is actually accessible through the client)
 echo "Verifying Vite proxy to /api/templates..."
-TIMEOUT=10
+TIMEOUT=15
 ELAPSED=0
 while ! curl -sf "$API_PROXY_URL" > /dev/null 2>&1; do
   if [[ $ELAPSED -ge $TIMEOUT ]]; then
     echo "ERROR: Vite proxy to /api failed within ${TIMEOUT}s"
     kill "$API_PID" "$CLIENT_PID" 2>/dev/null || true
+    exit 1
+  fi
+  # Check if both servers are still alive
+  if ! kill -0 "$API_PID" 2>/dev/null; then
+    echo "ERROR: API server died during proxy verification"
+    kill "$CLIENT_PID" 2>/dev/null || true
+    exit 1
+  fi
+  if ! kill -0 "$CLIENT_PID" 2>/dev/null; then
+    echo "ERROR: Client server died during proxy verification"
+    kill "$API_PID" 2>/dev/null || true
     exit 1
   fi
   sleep 1
@@ -119,7 +135,7 @@ done
 echo "Vite proxy is working"
 
 echo ""
-echo "✅ Both servers are ready"
+echo "✅ Both servers are ready (API at $API_HOST:$API_PORT, Client at $CLIENT_HOST:$CLIENT_PORT)"
 echo ""
 
 # Monitor processes during test run
@@ -127,12 +143,12 @@ echo ""
 monitor_processes() {
   while true; do
     if ! kill -0 "$API_PID" 2>/dev/null; then
-      echo "ERROR: API server process exited unexpectedly"
+      echo "ERROR: API server process exited unexpectedly during test run"
       kill "$CLIENT_PID" 2>/dev/null || true
       exit 1
     fi
     if ! kill -0 "$CLIENT_PID" 2>/dev/null; then
-      echo "ERROR: Client server process exited unexpectedly"
+      echo "ERROR: Client server process exited unexpectedly during test run"
       kill "$API_PID" 2>/dev/null || true
       exit 1
     fi

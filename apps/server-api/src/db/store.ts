@@ -76,7 +76,8 @@ async function ensureSchema(client: PGlite) {
 }
 
 export async function createStore(
-  dataDir = join(process.cwd(), "apps/server-api/.dexdraw-data"),
+  dataDir = process.env.DEXDRAW_DATA_DIR ??
+    join(process.cwd(), "apps/server-api/.dexdraw-data"),
 ) {
   await mkdir(dataDir, { recursive: true });
   const client = new PGlite(dataDir);
