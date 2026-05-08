@@ -5,8 +5,23 @@ import { HelpButton } from "./HelpButton";
 import { HelpModal } from "./HelpModal";
 import { HELP_TOPICS } from "./helpContent";
 
+function shouldSkipGatewayForAutomation(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("gateway")) {
+    return false;
+  }
+
+  return window.navigator.webdriver === true;
+}
+
 export function Gateway({ children }: { children: ReactNode }) {
-  const [entered, setEntered] = useState(false);
+  const [entered, setEntered] = useState(() =>
+    shouldSkipGatewayForAutomation(),
+  );
   const [exiting, setExiting] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

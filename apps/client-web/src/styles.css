@@ -741,3 +741,1115 @@ select:focus-visible {
     padding: 20px;
   }
 }
+
+/* DexDraw board HUD compact override */
+[data-app-theme="dark"] .board-page,
+.board-page {
+  min-height: 100vh;
+  position: relative;
+}
+
+.board-shell,
+.board-workspace,
+.board-layout,
+.board-page {
+  overflow: hidden;
+}
+
+.board-header,
+.board-toolbar,
+.toolbar,
+.presence-panel,
+.metrics-strip,
+.board-status,
+.board-controls {
+  position: relative;
+  z-index: 20;
+}
+
+/* Compact the top board chrome so the canvas is the page, not the leftovers. */
+.board-header {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: auto;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.35rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(8, 13, 25, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+}
+
+.board-header h1,
+.board-title {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.board-header code,
+.board-header .share-code,
+.board-header .board-id {
+  font-size: 0.85rem;
+  opacity: 0.72;
+}
+
+/* Main tool controls become a floating wrapped HUD. */
+.toolbar,
+.board-toolbar {
+  position: fixed;
+  top: 4.25rem;
+  left: 0.75rem;
+  right: auto;
+  z-index: 39;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  max-width: min(62rem, calc(100vw - 1.5rem));
+  max-height: 8.25rem;
+  overflow: auto;
+  padding: 0.45rem;
+  border-radius: 1.25rem;
+  background: rgba(8, 13, 25, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.toolbar button,
+.board-toolbar button,
+.board-header button,
+.presence-panel button,
+.metrics-strip button {
+  min-height: 2.15rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* Presence/status floats instead of consuming full-width page rows. */
+.presence-panel,
+.board-presence {
+  position: fixed;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 38;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-width: min(42rem, calc(100vw - 1.5rem));
+  padding: 0.4rem;
+  border-radius: 999px;
+  background: rgba(8, 13, 25, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.metrics-strip,
+.board-metrics {
+  position: fixed;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 38;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-width: min(42rem, calc(100vw - 1.5rem));
+  padding: 0.4rem;
+  border-radius: 999px;
+  background: rgba(8, 13, 25, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+/* Error banners should not steal a permanent row from the canvas. */
+.error-banner,
+.board-error,
+[role="alert"] {
+  position: fixed;
+  left: 50%;
+  top: 13rem;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(42rem, calc(100vw - 1.5rem));
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  text-align: center;
+  background: rgba(88, 28, 46, 0.86);
+  border: 1px solid rgba(251, 113, 133, 0.24);
+  backdrop-filter: blur(14px);
+}
+
+/* Let the board/canvas occupy the viewport. */
+.canvas-shell,
+.board-canvas,
+.board-stage,
+main:has(svg),
+main:has(canvas) {
+  min-height: 100vh;
+}
+
+/* Mobile: one compact top rail and canvas-first layout. */
+@media (max-width: 720px) {
+  .board-header {
+    top: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    overflow-x: auto;
+    border-radius: 1rem;
+  }
+
+  .toolbar,
+  .board-toolbar {
+    top: 3.9rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    max-width: calc(100vw - 1rem);
+    max-height: 6.5rem;
+    border-radius: 1rem;
+  }
+
+  .toolbar button,
+  .board-toolbar button,
+  .board-header button {
+    min-height: 2rem;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+  }
+
+  .presence-panel,
+  .board-presence,
+  .metrics-strip,
+  .board-metrics {
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    max-width: calc(100vw - 1rem);
+    justify-content: center;
+  }
+
+  .metrics-strip,
+  .board-metrics {
+    bottom: 3.5rem;
+  }
+
+  .error-banner,
+  .board-error,
+  [role="alert"] {
+    top: 10.75rem;
+    width: calc(100vw - 1rem);
+    border-radius: 1rem;
+  }
+}
+
+/* DexDraw post-welcome app surface polish */
+.home-page,
+.home-shell,
+.home-screen {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  isolation: isolate;
+  background: radial-gradient(
+      circle at 12% 12%,
+      rgba(255, 112, 18, 0.17),
+      transparent 24rem
+    ),
+    radial-gradient(
+      circle at 88% 18%,
+      rgba(56, 189, 248, 0.13),
+      transparent 28rem
+    ),
+    radial-gradient(
+      circle at 50% 110%,
+      rgba(99, 102, 241, 0.13),
+      transparent 32rem
+    ), linear-gradient(145deg, #060914 0%, #0a1020 54%, #071923 100%);
+}
+
+.home-page::before,
+.home-shell::before,
+.home-screen::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0.34;
+  background-image: linear-gradient(
+      rgba(148, 163, 184, 0.12) 1px,
+      transparent 1px
+    ), linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 50% 24%, black, transparent 76%);
+}
+
+.home-page::after,
+.home-shell::after,
+.home-screen::after {
+  content: "";
+  position: fixed;
+  inset: auto -12rem -18rem -12rem;
+  height: 28rem;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 112, 18, 0.14),
+    transparent 64%
+  );
+  filter: blur(18px);
+}
+
+.home-hero,
+.home-page header,
+.home-shell header {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2rem;
+  background: linear-gradient(
+      145deg,
+      rgba(15, 23, 42, 0.86),
+      rgba(11, 18, 32, 0.72)
+    ),
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 255, 255, 0.09),
+      transparent 28rem
+    );
+  border: 1px solid rgba(148, 163, 184, 0.23);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34), inset 0 1px 0
+    rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px);
+  transform: translateZ(0);
+  animation: dexdraw-surface-rise 520ms ease both;
+}
+
+.home-hero::before,
+.home-page header::before,
+.home-shell header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.75;
+  background: linear-gradient(
+      120deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.09) 42%,
+      transparent 58%
+    ),
+    radial-gradient(
+      circle at 18% 0%,
+      rgba(255, 112, 18, 0.14),
+      transparent 18rem
+    );
+  transform: translateX(-18%);
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1), opacity 500ms ease;
+}
+
+.home-hero:hover::before,
+.home-page header:hover::before,
+.home-shell header:hover::before {
+  transform: translateX(18%);
+  opacity: 1;
+}
+
+.home-card,
+.home-panel,
+.create-card,
+.join-card,
+section:has(form) {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.75rem;
+  background: linear-gradient(
+      145deg,
+      rgba(15, 23, 42, 0.88),
+      rgba(10, 16, 29, 0.74)
+    ),
+    radial-gradient(
+      circle at 20% 0%,
+      rgba(255, 112, 18, 0.08),
+      transparent 22rem
+    );
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: 0 22px 68px rgba(0, 0, 0, 0.3), inset 0 1px 0
+    rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(16px);
+  transition: transform 260ms ease, border-color 260ms ease, box-shadow 260ms
+    ease, background 260ms ease;
+  animation: dexdraw-surface-rise 620ms ease both;
+}
+
+.home-card:nth-of-type(2),
+.home-panel:nth-of-type(2),
+section:has(form):nth-of-type(2) {
+  animation-delay: 80ms;
+}
+
+.home-card:hover,
+.home-panel:hover,
+.create-card:hover,
+.join-card:hover,
+section:has(form):hover {
+  transform: translateY(-0.35rem);
+  border-color: rgba(255, 112, 18, 0.38);
+  box-shadow: 0 34px 92px rgba(0, 0, 0, 0.38), 0 0 0 1px
+    rgba(255, 112, 18, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.075);
+}
+
+.home-card::before,
+.home-panel::before,
+.create-card::before,
+.join-card::before,
+section:has(form)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+      circle at var(--dexdraw-hover-x, 50%) var(--dexdraw-hover-y, 0%),
+      rgba(255, 112, 18, 0.14),
+      transparent 18rem
+    ),
+    linear-gradient(
+      120deg,
+      transparent,
+      rgba(255, 255, 255, 0.055),
+      transparent
+    );
+  transition: opacity 260ms ease;
+}
+
+.home-card:hover::before,
+.home-panel:hover::before,
+.create-card:hover::before,
+.join-card:hover::before,
+section:has(form):hover::before {
+  opacity: 1;
+}
+
+.home-card h2,
+.home-panel h2,
+.create-card h2,
+.join-card h2 {
+  letter-spacing: -0.035em;
+}
+
+.home-card p,
+.home-panel p,
+.create-card p,
+.join-card p {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.home-card input,
+.home-card select,
+.home-panel input,
+.home-panel select,
+.create-card input,
+.create-card select,
+.join-card input,
+.join-card select,
+section:has(form) input,
+section:has(form) select {
+  background: rgba(8, 13, 25, 0.58);
+  border-color: rgba(148, 163, 184, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms
+    ease, transform 180ms ease;
+}
+
+.home-card input:focus,
+.home-card select:focus,
+.home-panel input:focus,
+.home-panel select:focus,
+.create-card input:focus,
+.create-card select:focus,
+.join-card input:focus,
+.join-card select:focus,
+section:has(form) input:focus,
+section:has(form) select:focus {
+  background: rgba(8, 13, 25, 0.74);
+  border-color: rgba(255, 112, 18, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 112, 18, 0.13), inset 0 1px 0
+    rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
+}
+
+.home-card button,
+.home-panel button,
+.create-card button,
+.join-card button,
+section:has(form) button {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms
+    ease, background 180ms ease;
+}
+
+.home-card button:hover,
+.home-panel button:hover,
+.create-card button:hover,
+.join-card button:hover,
+section:has(form) button:hover {
+  transform: translateY(-2px);
+}
+
+.home-card button:active,
+.home-panel button:active,
+.create-card button:active,
+.join-card button:active,
+section:has(form) button:active {
+  transform: translateY(0);
+}
+
+/* Top hero/title FAQ should not appear; section-level FAQs remain. */
+.home-hero > button[aria-label*="FAQ"],
+.home-hero-title-row > button[aria-label*="FAQ"],
+.home-page header > button[aria-label*="FAQ"],
+.home-shell header > button[aria-label*="FAQ"] {
+  display: none;
+}
+
+@keyframes dexdraw-surface-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.985);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (max-width: 760px) {
+  .home-hero,
+  .home-page header,
+  .home-shell header,
+  .home-card,
+  .home-panel,
+  .create-card,
+  .join-card,
+  section:has(form) {
+    border-radius: 1.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-hero,
+  .home-page header,
+  .home-shell header,
+  .home-card,
+  .home-panel,
+  .create-card,
+  .join-card,
+  section:has(form),
+  .home-card input,
+  .home-card select,
+  .home-panel input,
+  .home-panel select,
+  section:has(form) input,
+  section:has(form) select,
+  .home-card button,
+  .home-panel button,
+  section:has(form) button {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* DexDraw post-welcome button ink trail */
+.home-page button,
+.home-shell button,
+.home-screen button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.button-ink-trail {
+  position: absolute;
+  z-index: 0;
+  width: var(--ink-size, 14px);
+  height: var(--ink-size, 14px);
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  border-radius: 999px 72% 88% 64%;
+  background: radial-gradient(
+      circle at 36% 32%,
+      rgba(255, 255, 255, 0.42),
+      transparent 0.18rem
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 112, 18, 0.48),
+      rgba(255, 112, 18, 0.18) 48%,
+      transparent 72%
+    );
+  mix-blend-mode: screen;
+  filter: blur(0.2px);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.45);
+  animation: dexdraw-button-ink-trail 760ms cubic-bezier(0.17, 0.84, 0.44, 1)
+    forwards;
+}
+
+.home-page button > :not(.button-ink-trail),
+.home-shell button > :not(.button-ink-trail),
+.home-screen button > :not(.button-ink-trail) {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes dexdraw-button-ink-trail {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.25) rotate(0deg);
+  }
+
+  18% {
+    opacity: 0.78;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--ink-drift-x, 0px)),
+        calc(-50% + var(--ink-drift-y, 0px))
+      )
+      scale(2.2) rotate(38deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button-ink-trail {
+    display: none;
+  }
+}
+
+/* DexDraw strong app menu and ink pass */
+.home-page,
+.home-shell,
+.home-screen {
+  background: radial-gradient(
+      circle at 8% 12%,
+      rgba(255, 112, 18, 0.24),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 92% 16%,
+      rgba(56, 189, 248, 0.18),
+      transparent 26rem
+    ), linear-gradient(145deg, #050711 0%, #080f1f 50%, #061723 100%) !important;
+}
+
+.home-hero,
+.home-page header,
+.home-shell header {
+  transform-style: preserve-3d;
+  box-shadow: 0 34px 110px rgba(0, 0, 0, 0.52), 0 0 0 1px
+    rgba(255, 255, 255, 0.035), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.home-card,
+.home-panel,
+.create-card,
+.join-card,
+section:has(form) {
+  transform-style: preserve-3d;
+  background: linear-gradient(
+      145deg,
+      rgba(17, 26, 47, 0.94),
+      rgba(8, 14, 27, 0.82)
+    ),
+    radial-gradient(
+      circle at 18% 0%,
+      rgba(255, 112, 18, 0.16),
+      transparent 18rem
+    ) !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.46), 0 0 0 1px
+    rgba(255, 255, 255, 0.035), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.home-card:hover,
+.home-panel:hover,
+.create-card:hover,
+.join-card:hover,
+section:has(form):hover {
+  transform: translateY(-0.7rem) scale(1.012) !important;
+  border-color: rgba(255, 112, 18, 0.62) !important;
+  box-shadow: 0 44px 125px rgba(0, 0, 0, 0.58), 0 0 42px
+    rgba(255, 112, 18, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.11) !important;
+}
+
+.home-page button,
+.home-shell button,
+.home-screen button {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate;
+}
+
+/* Strong visible liquid hover wash. */
+.home-page button::before,
+.home-shell button::before,
+.home-screen button::before {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+      circle at 30% 45%,
+      rgba(255, 255, 255, 0.28),
+      transparent 0.35rem
+    ),
+    radial-gradient(
+      circle at 45% 55%,
+      rgba(255, 112, 18, 0.72),
+      transparent 1.4rem
+    ),
+    radial-gradient(
+      circle at 62% 42%,
+      rgba(255, 181, 96, 0.42),
+      transparent 1.7rem
+    ),
+    radial-gradient(circle at 52% 66%, rgba(28, 8, 6, 0.35), transparent 2rem);
+  filter: blur(2px);
+  transform: translateX(-45%) rotate(-8deg) scale(0.72);
+  transition: opacity 180ms ease, transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home-page button:hover::before,
+.home-shell button:hover::before,
+.home-screen button:hover::before {
+  opacity: 1;
+  transform: translateX(0) rotate(4deg) scale(1);
+}
+
+.home-page button > *,
+.home-shell button > *,
+.home-screen button > * {
+  position: relative;
+  z-index: 2;
+}
+
+.button-ink-trail {
+  position: absolute;
+  z-index: 3;
+  width: var(--ink-size, 22px);
+  height: var(--ink-size, 22px);
+  pointer-events: none;
+  border-radius: 999px 68% 84% 62%;
+  background: radial-gradient(
+      circle at 35% 28%,
+      rgba(255, 255, 255, 0.62),
+      transparent 0.24rem
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 112, 18, 0.88),
+      rgba(255, 112, 18, 0.38) 45%,
+      rgba(35, 10, 5, 0.16) 68%,
+      transparent 76%
+    );
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.35);
+  animation: dexdraw-button-ink-trail-strong 900ms
+    cubic-bezier(0.17, 0.84, 0.44, 1) forwards;
+}
+
+@keyframes dexdraw-button-ink-trail-strong {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.22) rotate(0deg);
+  }
+
+  12% {
+    opacity: 0.95;
+  }
+
+  58% {
+    opacity: 0.52;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--ink-drift-x, 0px)),
+        calc(-50% + var(--ink-drift-y, 0px))
+      )
+      scale(2.8) rotate(46deg);
+  }
+}
+
+/* Animated gateway should not show a FAQ button. */
+.gateway .help-button,
+.gateway button[aria-label*="FAQ"],
+.gateway button:has(+ .help-modal) {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-card:hover,
+  .home-panel:hover,
+  .create-card:hover,
+  .join-card:hover,
+  section:has(form):hover {
+    transform: none !important;
+  }
+
+  .home-page button::before,
+  .home-shell button::before,
+  .home-screen button::before,
+  .button-ink-trail {
+    display: none !important;
+  }
+}
+
+/* DexDraw app-like runtime interaction layer */
+.dexdraw-home-mode {
+  background: radial-gradient(
+      circle at 8% 12%,
+      rgba(255, 112, 18, 0.24),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 92% 16%,
+      rgba(56, 189, 248, 0.18),
+      transparent 26rem
+    ), linear-gradient(145deg, #050711 0%, #080f1f 50%, #061723 100%) !important;
+}
+
+.dexdraw-home-card {
+  transform-style: preserve-3d;
+  transition: transform 260ms ease, border-color 260ms ease, box-shadow 260ms
+    ease, filter 260ms ease;
+}
+
+.dexdraw-home-card:hover {
+  transform: translateY(-0.65rem) scale(1.012);
+  border-color: rgba(255, 112, 18, 0.62) !important;
+  box-shadow: 0 44px 125px rgba(0, 0, 0, 0.58), 0 0 42px
+    rgba(255, 112, 18, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.11) !important;
+}
+
+.dexdraw-home-mode button {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate;
+}
+
+.dexdraw-home-mode button::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+      circle at 30% 45%,
+      rgba(255, 255, 255, 0.32),
+      transparent 0.35rem
+    ),
+    radial-gradient(
+      circle at 45% 55%,
+      rgba(255, 112, 18, 0.82),
+      transparent 1.45rem
+    ),
+    radial-gradient(
+      circle at 62% 42%,
+      rgba(255, 181, 96, 0.48),
+      transparent 1.85rem
+    ),
+    radial-gradient(circle at 52% 66%, rgba(25, 7, 4, 0.48), transparent 2.2rem);
+  filter: blur(2px);
+  transform: translateX(-45%) rotate(-8deg) scale(0.72);
+  transition: opacity 180ms ease, transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dexdraw-home-mode button:hover::before {
+  opacity: 1;
+  transform: translateX(0) rotate(4deg) scale(1);
+}
+
+.dexdraw-home-mode button > * {
+  position: relative;
+  z-index: 2;
+}
+
+.dexdraw-ink-drop {
+  position: absolute;
+  z-index: 3;
+  width: var(--ink-size, 26px);
+  height: var(--ink-size, 26px);
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  border-radius: 999px 68% 84% 62%;
+  background: radial-gradient(
+      circle at 35% 28%,
+      rgba(255, 255, 255, 0.62),
+      transparent 0.24rem
+    ),
+    radial-gradient(
+      circle,
+      rgba(255, 112, 18, 0.88),
+      rgba(255, 112, 18, 0.38) 45%,
+      rgba(35, 10, 5, 0.16) 68%,
+      transparent 76%
+    );
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.35);
+  animation: dexdraw-ink-trail 900ms cubic-bezier(0.17, 0.84, 0.44, 1) forwards;
+}
+
+@keyframes dexdraw-ink-trail {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.22) rotate(0deg);
+  }
+
+  12% {
+    opacity: 0.95;
+  }
+
+  58% {
+    opacity: 0.52;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--ink-x, 0px)),
+        calc(-50% + var(--ink-y, 0px))
+      )
+      scale(2.85) rotate(var(--ink-r, 46deg));
+  }
+}
+
+/* Board mode: canvas-first, floating, draggable HUD panels */
+.dexdraw-board-mode {
+  overflow: hidden;
+}
+
+.dexdraw-board-mode main,
+.dexdraw-board-mode [role="main"] {
+  min-height: 100vh;
+}
+
+.dexdraw-floating-panel {
+  position: fixed !important;
+  z-index: 90 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  max-width: min(72vw, 58rem) !important;
+  max-height: 12rem !important;
+  overflow: auto !important;
+  padding: 0.55rem 0.65rem 0.55rem 2.4rem !important;
+  border-radius: 1.25rem !important;
+  background: linear-gradient(
+    145deg,
+    rgba(12, 18, 32, 0.78),
+    rgba(8, 12, 22, 0.58)
+  ) !important;
+  border: 1px solid rgba(226, 232, 240, 0.2) !important;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32), inset 0 1px 0
+    rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(18px) saturate(1.2) !important;
+  resize: both;
+}
+
+.dexdraw-title-panel {
+  top: 0.75rem !important;
+  left: 0.75rem !important;
+  width: min(62rem, calc(100vw - 1.5rem)) !important;
+  min-height: 3rem !important;
+}
+
+.dexdraw-tool-panel {
+  top: 5rem !important;
+  left: 0.75rem !important;
+  width: min(52rem, calc(100vw - 1.5rem)) !important;
+}
+
+.dexdraw-export-panel {
+  top: 5rem !important;
+  right: 0.75rem !important;
+  left: auto !important;
+  width: min(28rem, calc(100vw - 1.5rem)) !important;
+}
+
+.dexdraw-status-panel {
+  right: 0.75rem !important;
+  bottom: 0.75rem !important;
+  left: auto !important;
+  width: min(44rem, calc(100vw - 1.5rem)) !important;
+  max-height: 7rem !important;
+}
+
+.dexdraw-floating-panel button {
+  min-height: 2.1rem !important;
+  padding: 0.42rem 0.75rem !important;
+  border-radius: 999px !important;
+  font-size: 0.92rem !important;
+}
+
+.dexdraw-panel-handle,
+.dexdraw-panel-collapse {
+  position: absolute !important;
+  top: 0.45rem !important;
+  z-index: 5 !important;
+  width: 1.55rem !important;
+  min-width: 1.55rem !important;
+  height: 1.55rem !important;
+  min-height: 1.55rem !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(226, 232, 240, 0.24) !important;
+  background: rgba(15, 23, 42, 0.78) !important;
+  color: rgba(248, 250, 252, 0.92) !important;
+  cursor: grab !important;
+  font-size: 0.75rem !important;
+  line-height: 1 !important;
+}
+
+.dexdraw-panel-handle {
+  left: 0.45rem !important;
+}
+
+.dexdraw-panel-collapse {
+  left: 1.95rem !important;
+  cursor: pointer !important;
+}
+
+.dexdraw-panel--moving .dexdraw-panel-handle {
+  cursor: grabbing !important;
+}
+
+.dexdraw-panel-resize {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.35rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-right: 2px solid rgba(226, 232, 240, 0.42);
+  border-bottom: 2px solid rgba(226, 232, 240, 0.42);
+  cursor: nwse-resize;
+}
+
+.dexdraw-panel--collapsed {
+  width: auto !important;
+  height: 2.75rem !important;
+  min-width: 6.5rem !important;
+  overflow: hidden !important;
+}
+
+.dexdraw-panel--collapsed
+  > :not(.dexdraw-panel-handle):not(.dexdraw-panel-collapse):not(
+    .dexdraw-panel-resize
+  ) {
+  display: none !important;
+}
+
+.dexdraw-floating-panel:hover {
+  border-color: rgba(255, 112, 18, 0.38) !important;
+  box-shadow: 0 36px 110px rgba(0, 0, 0, 0.42), 0 0 38px
+    rgba(255, 112, 18, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+@media (max-width: 760px) {
+  .dexdraw-floating-panel {
+    max-width: calc(100vw - 1rem) !important;
+    width: calc(100vw - 1rem) !important;
+    left: 0.5rem !important;
+    right: auto !important;
+  }
+
+  .dexdraw-title-panel {
+    top: 0.5rem !important;
+  }
+
+  .dexdraw-tool-panel {
+    top: 4.75rem !important;
+    max-height: 8.25rem !important;
+  }
+
+  .dexdraw-status-panel {
+    bottom: 0.5rem !important;
+    max-height: 7rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dexdraw-home-card,
+  .dexdraw-home-mode button::before,
+  .dexdraw-ink-drop {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .dexdraw-ink-drop {
+    display: none !important;
+  }
+}
+
+/* DexDraw E2E-safe HUD pointer layering fix */
+.dexdraw-board-mode [data-testid="workspace-zone"],
+.dexdraw-board-mode .board-stage {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.dexdraw-board-mode [data-testid="board-canvas"],
+.dexdraw-board-mode .canvas {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.dexdraw-board-mode .dexdraw-floating-panel,
+.dexdraw-board-mode .dexdraw-floating-panel *,
+.dexdraw-board-mode .toolbar,
+.dexdraw-board-mode .toolbar *,
+.dexdraw-board-mode .board-toolbar,
+.dexdraw-board-mode .board-toolbar *,
+.dexdraw-board-mode .board-header,
+.dexdraw-board-mode .board-header *,
+.dexdraw-board-mode .metrics-strip,
+.dexdraw-board-mode .metrics-strip *,
+.dexdraw-board-mode .presence-panel,
+.dexdraw-board-mode .presence-panel * {
+  pointer-events: auto !important;
+}
+
+.dexdraw-board-mode .dexdraw-floating-panel,
+.dexdraw-board-mode .toolbar,
+.dexdraw-board-mode .board-toolbar,
+.dexdraw-board-mode .board-header,
+.dexdraw-board-mode .metrics-strip,
+.dexdraw-board-mode .presence-panel {
+  position: fixed !important;
+  z-index: 9999 !important;
+}

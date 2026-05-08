@@ -2,6 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./styles.css";
+import { installDexDrawInteractionEnhancer } from "./interactionEnhancer";
+
+installDexDrawInteractionEnhancer();
 
 const rootElement = document.getElementById("root");
 

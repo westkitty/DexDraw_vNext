@@ -11,6 +11,59 @@ import { HelpModal } from "./HelpModal";
 import { HELP_TOPICS, type HelpTopicId } from "./helpContent";
 
 export function HomePage() {
+  useEffect(() => {
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (reducedMotion) {
+      return;
+    }
+
+    let lastInkAt = 0;
+
+    function handlePointerMove(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const button = target.closest(
+        ".home-page button, .home-shell button, .home-screen button",
+      );
+
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      const now = performance.now();
+      if (now - lastInkAt < 22) {
+        return;
+      }
+      lastInkAt = now;
+
+      const rect = button.getBoundingClientRect();
+      const ink = document.createElement("span");
+      ink.className = "button-ink-trail";
+      ink.style.left = `${event.clientX - rect.left}px`;
+      ink.style.top = `${event.clientY - rect.top}px`;
+      ink.style.setProperty("--ink-size", `${18 + Math.random() * 24}px`);
+      ink.style.setProperty("--ink-drift-x", `${(Math.random() - 0.5) * 28}px`);
+      ink.style.setProperty("--ink-drift-y", `${(Math.random() - 0.5) * 18}px`);
+
+      button.appendChild(ink);
+      window.setTimeout(() => ink.remove(), 760);
+    }
+
+    window.addEventListener("pointermove", handlePointerMove, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, []);
+
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<
     Array<{ id: string; name: string; description: string }>
@@ -78,10 +131,6 @@ export function HomePage() {
         <section className="hero">
           <div className="section-header section-header--centered">
             <h1>DexDraw</h1>
-            <HelpButton
-              label="Home FAQ"
-              onClick={() => setActiveHelpId("home-overview")}
-            />
           </div>
           <p>Private, self-hosted, server-authoritative collaboration.</p>
           <p>

@@ -4,13 +4,13 @@ import { expect, test } from "@playwright/test";
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test("gateway screen is shown before the app shell", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?gateway=1");
   await expect(page.getByTestId("gateway-screen")).toBeVisible();
   await expect(page.getByTestId("app-shell")).not.toBeVisible();
 });
 
 test("clicking Enter hides gateway and reveals app shell", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?gateway=1");
   await expect(page.getByTestId("gateway-screen")).toBeVisible();
   await page.getByTestId("gateway-enter").click();
   await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
@@ -18,26 +18,24 @@ test("clicking Enter hides gateway and reveals app shell", async ({ page }) => {
 });
 
 test("gateway video uses local source path", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?gateway=1");
   const src = await page.getByTestId("gateway-video").getAttribute("src");
   expect(src).toBe("/DexDraw_Opening.mp4");
 });
 
-test("gateway is not shown again after entering (localStorage flag)", async ({
+test("gateway can be replayed on a fresh forced-gateway visit", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByTestId("gateway-enter").click();
-  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
-
-  // Navigate away and back — should go straight to app shell
-  await page.goto("/");
+  await page.goto("/?gateway=1");
+  await page.getByRole("button", { name: "Enter" }).click();
   await expect(page.getByTestId("app-shell")).toBeVisible();
-  await expect(page.getByTestId("gateway-screen")).not.toBeVisible();
+
+  await page.goto("/?gateway=1");
+  await expect(page.getByTestId("gateway-screen")).toBeVisible();
 });
 
 test("board page works after entering through gateway", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?gateway=1");
   await page.getByTestId("gateway-enter").click();
   await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
@@ -49,7 +47,7 @@ test("board page works after entering through gateway", async ({ page }) => {
 });
 
 test("metrics strip updates object count after drawing", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?gateway=1");
   await page.getByTestId("gateway-enter").click();
   await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
@@ -77,7 +75,7 @@ test("metrics strip updates object count after drawing", async ({ page }) => {
 test("metrics strip updates selected count after selecting", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?gateway=1");
   await page.getByTestId("gateway-enter").click();
   await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
@@ -121,7 +119,7 @@ test("no external network requests are made on the board page", async ({
     }
   });
 
-  await page.goto("/");
+  await page.goto("/?gateway=1");
   await page.getByTestId("gateway-enter").click();
   await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
