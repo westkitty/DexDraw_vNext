@@ -11,19 +11,10 @@ export default defineConfig({
     // gateway.spec.ts overrides this with an empty storageState to test the gateway.
     storageState: "tests/e2e/.auth/entered.json",
   },
-  webServer: [
-    {
-      command: "pnpm --filter @dexdraw/server-api dev",
-      url: "http://127.0.0.1:4000/health",
-      reuseExistingServer: true,
-      timeout: 60_000,
-    },
-    {
-      command:
-        "pnpm --filter @dexdraw/client-web dev -- --host 127.0.0.1 --port 5173",
-      url: "http://127.0.0.1:5173",
-      reuseExistingServer: true,
-      timeout: 60_000,
-    },
-  ],
+  webServer: {
+    command: "bash scripts/start-dev-servers.sh",
+    url: "http://127.0.0.1:5173",
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
 });
