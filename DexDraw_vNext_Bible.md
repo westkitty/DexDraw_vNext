@@ -2942,3 +2942,59 @@ Final state decision:
 
 **Decision:** No additional cleanup is required for the current user-facing pass. Remaining references are historical, internal, or test-only continuity markers and should be handled only in a separate low-risk internal rename pass.
 
+
+## Entry 40 — Restore gateway intro animation on app load
+
+**Date:** 2026-05-08
+
+**Summary:** Restored the DexDraw gateway animation as a normal app-load experience instead of permanently skipping it after the first Enter click in a browser profile.
+
+**Reason:** Manual browser testing showed the app opened straight to the post-gateway page with no animated intro. Inspection confirmed `Gateway.tsx` stored `dexdraw-entered` in `localStorage`, causing the gateway to be bypassed on later visits.
+
+**Files changed:**
+- `apps/client-web/src/components/Gateway.tsx`
+- `apps/client-web/src/components/helpContent.ts`
+- `DexDraw_vNext_Bible.md`
+
+**Implementation:**
+- Removed persistent `localStorage` gateway-entered state.
+- Gateway now starts unentered on app load so the intro video appears.
+- Pressing Enter still transitions into the dark post-gateway app shell.
+- Updated Gateway FAQ copy so it no longer claims the intro is one-time.
+
+**Validation plan:**
+- Run typecheck, unit tests, build, lint, and end-to-end tests.
+- Manually verify `http://localhost:5173/` shows the animated gateway before entering.
+
+
+## Entry 41 — Remove visible gateway name text
+
+**Date:** 2026-05-08
+
+**Summary:** Removed the visible `DexDraw` title/subtitle text from the gateway screen because the name is already part of the animated welcome experience.
+
+**Files changed:**
+- `apps/client-web/src/components/Gateway.tsx`
+- `DexDraw_vNext_Bible.md`
+
+**Decision:** The gateway should rely on the animation for the brand/name reveal. Text labels on the welcome page should not duplicate the animation.
+
+**Validation plan:** Run lightweight validation first. Full Playwright validation is deferred until the E2E tests are updated to explicitly enter through the restored gateway.
+
+
+## Entry 42 — Restore gateway description text
+
+**Date:** 2026-05-08
+
+**Summary:** Corrected the prior gateway text cleanup. The visible project name should stay hidden because the name is part of the animation, but the descriptive subtitle should remain visible on the welcome page.
+
+**Files changed:**
+- `apps/client-web/src/components/Gateway.tsx`
+- `DexDraw_vNext_Bible.md`
+
+**Decision:** Gateway should show descriptive product context without duplicating the animated project-name reveal.
+
+**Validation:**
+- Lightweight validation to be run after patch.
+- Manual browser check required while dev server is running.
+

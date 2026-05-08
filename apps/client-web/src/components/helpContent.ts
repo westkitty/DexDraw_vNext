@@ -25,11 +25,11 @@ export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
     sections: [
       {
         heading: "What this screen does",
-        body: "The gateway is a one-time intro layer. Once you enter, the workspace opens directly on later visits in the same browser profile.",
+        body: "The gateway is the animated intro layer. Press Enter to open the workspace for this visit.",
       },
       {
         heading: "What gets stored",
-        body: "Only the entered flag is stored locally. It is there to skip the intro, not to hold board data.",
+        body: "The intro does not store board data. Board access details are handled separately from the gateway animation.",
       },
     ],
   },

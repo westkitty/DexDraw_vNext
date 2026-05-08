@@ -5,26 +5,8 @@ import { HelpButton } from "./HelpButton";
 import { HelpModal } from "./HelpModal";
 import { HELP_TOPICS } from "./helpContent";
 
-const ENTERED_KEY = "dexdraw-entered";
-
-function hasEntered(): boolean {
-  try {
-    return localStorage.getItem(ENTERED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function markEntered(): void {
-  try {
-    localStorage.setItem(ENTERED_KEY, "1");
-  } catch {
-    // storage unavailable — degrade gracefully
-  }
-}
-
 export function Gateway({ children }: { children: ReactNode }) {
-  const [entered, setEntered] = useState(hasEntered);
+  const [entered, setEntered] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,7 +20,6 @@ export function Gateway({ children }: { children: ReactNode }) {
   }, []);
 
   function handleEnter() {
-    markEntered();
     const reduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -74,10 +55,11 @@ export function Gateway({ children }: { children: ReactNode }) {
         playsInline
       />
       <div className="gateway-content">
-        <h1 className="gateway-title">DexDraw</h1>
         <p className="gateway-subtitle">
-          Private. Self-hosted. Server-authoritative.
+          Collaborative visual thinking for boards, sketches and structured
+          creative work.
         </p>
+
         <div className="gateway-actions">
           <button
             className="gateway-enter"
