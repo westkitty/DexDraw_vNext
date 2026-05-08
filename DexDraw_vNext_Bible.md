@@ -2062,3 +2062,10 @@ All gates green:
 - `bash scripts/verify.sh --e2e` — exits 0, no proxy noise
 
 **HEAD after commit:** TBD (P9)
+
+#### Sub-Entry 25.8 — P9: Commit + Tag
+
+**Commit:** `ac43167` — "feat: add DexDraw gateway shell and metrics strip"
+**Tag:** `v0.1.0-rc1` moved to `ac43167`
+**Files changed:** 20 (5 new: Gateway.tsx, MetricsStrip.tsx, DexDraw_Opening.mp4, entered.json, gateway.spec.ts)
+**Insertions:** 613 / Deletions: 20
