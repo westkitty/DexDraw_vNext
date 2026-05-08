@@ -2069,3 +2069,116 @@ All gates green:
 **Tag:** `v0.1.0-rc1` moved to `ac43167`
 **Files changed:** 20 (5 new: Gateway.tsx, MetricsStrip.tsx, DexDraw_Opening.mp4, entered.json, gateway.spec.ts)
 **Insertions:** 613 / Deletions: 20
+
+---
+
+## Bible Entry 26 — Gateway setTimeout Memory Leak Fix
+
+**Commit:** `d0fcf55` — "fix: cleanup setTimeout in Gateway component to prevent memory leak"
+**Date:** 2026-05-08
+**v0.1.0-rc1 Target:** (not updated; part of dev fixes)
+
+### Problem
+
+The `Gateway` component in `apps/client-web/src/components/Gateway.tsx` was setting a `setTimeout` in the `handleEnter()` function but never cleaning it up. If the component unmounted before the timeout fired, the callback would execute after unmount, causing React warnings about state updates on unmounted components.
+
+### Solution
+
+Added proper cleanup in `useEffect`:
+1. Created `timeoutRef` using `useRef<ReturnType<typeof setTimeout> | null>(null)`
+2. Stored timeout reference in `timeoutRef.current = setTimeout(...)`
+3. Added `useEffect` cleanup hook that calls `clearTimeout(timeoutRef.current)` on unmount
+4. Ensures timeout is cleared before component unmounts
+
+### Verification
+
+All 79 E2E tests pass with fix:
+- `pnpm test:e2e --workers=1` — 79/79 passing
+- No React warnings in test output
+- Gateway transition behavior preserved
+
+**Files changed:** 1 (`apps/client-web/src/components/Gateway.tsx`)
+
+---
+
+## Bible Entry 27 — E2E Server Lifecycle Stabilization
+
+**Commit:** `6e1a154` — "fix: stabilize E2E server lifecycle with sequential orchestration"
+**Date:** 2026-05-08
+**v0.1.0-rc1 Target:** moved to `6e1a154`
+
+### Problem
+
+Fresh-clone E2E test runs were intermittently failing with ECONNREFUSED errors on `/api/templates` and `/api/boards` endpoints, even with `--workers=1`. Root causes:
+
+1. **Race condition:** Playwright's `webServer` configuration started API and client servers in parallel. When the client server (Vite) marked itself ready, the proxy immediately handled requests, but the API server on port 4000 was still initializing (awaiting PGlite database setup in `createStore()`).
+
+2. **Database locking:** Running the full E2E suite multiple times without cleaning the database directory caused PGlite file locking issues on fresh clones.
+
+### Solution
+
+Created `scripts/start-dev-servers.sh` — a bash orchestration script that ensures sequential, robust server startup:
+
+```bash
+# 1. Clean database for fresh state
+rm -rf apps/server-api/.dexdraw-data
+
+# 2. Start API server
+pnpm --filter @dexdraw/server-api dev &
+
+# 3. Poll /health endpoint until ready (30s timeout)
+# Ensures API accepts connections before client starts
+
+# 4. Start client server
+pnpm --filter @dexdraw/client-web dev --host 127.0.0.1 --port 5173 &
+
+# 5. Poll client port until ready (30s timeout)
+# Ensures Vite server is fully initialized
+
+# 6. Keep servers alive
+wait
+
+# 7. Cleanup on EXIT trap
+```
+
+**Updated `playwright.config.ts`:**
+- Removed parallel `webServer` array (two separate server configs)
+- Replaced with single `webServer` entry pointing to orchestration script
+- Adjusted timeout to 120s (script includes health checks totaling ~30s each)
+- Changed health check URL to client port (`http://127.0.0.1:5173`)
+
+### Why This Works
+
+1. **Sequential startup:** API fully initializes before client starts, eliminating race condition
+2. **Health checks:** `/health` endpoint confirms API is accepting connections; client port polling confirms Vite is ready
+3. **Database cleanup:** Fresh `.dexdraw-data` on every test run prevents PGlite file lock issues
+4. **Graceful cleanup:** `trap cleanup EXIT` ensures both server processes terminate when tests complete
+
+### Verification
+
+**Full verification gates (all passing):**
+- `pnpm typecheck` — clean
+- `pnpm lint` — clean
+- `pnpm build` — clean (272 kB JS)
+- `pnpm test` — 133/133 passing (client + server + shared)
+- `pnpm test:e2e --workers=1` — **79/79 passing** (complete suite, no ECONNREFUSED)
+- `bash scripts/verify.sh --e2e` — exits 0, all gates green
+
+**Targeted test:** `pnpm test:e2e tests/e2e/selection-hardening.spec.ts --workers=1` — 11/11 passing
+
+**Full suite:** 2.0-2.1 minutes for 79 tests with orchestration script (sequential startup overhead minimal)
+
+**Files changed:** 2
+- `playwright.config.ts` — updated webServer config (17 lines → 5 lines)
+- `scripts/start-dev-servers.sh` — new orchestration script (77 lines)
+
+**Insertions:** 82 / **Deletions:** 15
+
+### Impact
+
+- Eliminates intermittent ECONNREFUSED failures in full E2E runs
+- Fixes fresh-clone reliability issues
+- Database cleanup ensures consistent test environment
+- Sequential orchestration is explicit and debuggable (vs. Playwright's parallel magic)
+- Test suite now reliable on all machines (new clone or repeated runs)
+
