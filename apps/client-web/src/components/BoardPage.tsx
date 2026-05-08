@@ -41,10 +41,13 @@ import {
   getDisplayName,
 } from "../lib/session";
 import { BoardCanvas } from "./BoardCanvas";
+import { HelpButton } from "./HelpButton";
+import { HelpModal } from "./HelpModal";
 import { InlineEditor } from "./InlineEditor";
 import { MetricsStrip } from "./MetricsStrip";
 import { PresencePanel } from "./PresencePanel";
 import { type Tool, Toolbar } from "./Toolbar";
+import { HELP_TOPICS, type HelpTopicId } from "./helpContent";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -83,6 +86,7 @@ export function BoardPage() {
   const [selectedCheckpointId, setSelectedCheckpointId] = useState<
     string | null
   >(null);
+  const [activeHelpId, setActiveHelpId] = useState<HelpTopicId | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const clientSeqRef = useRef(0);
@@ -1423,11 +1427,17 @@ export function BoardPage() {
     <main className="board-shell">
       <header className="board-topbar">
         <div className="meta-group">
-          <BoardTitleInput
-            title={boardTitle}
-            canEdit={role === "owner"}
-            onCommit={handleRenameBoard}
-          />
+          <div className="board-title-row">
+            <BoardTitleInput
+              title={boardTitle}
+              canEdit={role === "owner"}
+              onCommit={handleRenameBoard}
+            />
+            <HelpButton
+              label="Board details FAQ"
+              onClick={() => setActiveHelpId("board")}
+            />
+          </div>
           <span className="meta-line" data-testid="board-id">
             {boardId}
           </span>
@@ -1457,6 +1467,7 @@ export function BoardPage() {
           onRestoreCheckpoint={handleRestoreCheckpoint}
           onExportMarkdown={handleExportMarkdown}
           onExportPdf={handleExportPdf}
+          onOpenHelp={() => setActiveHelpId("tools")}
           exportDisabled={objects.length === 0}
         />
 
@@ -1467,6 +1478,7 @@ export function BoardPage() {
           <PresencePanel
             localDisplayName={displayName}
             remotePresence={remotePresence}
+            onOpenHelp={() => setActiveHelpId("presence")}
           />
         </div>
       </header>
@@ -1479,6 +1491,7 @@ export function BoardPage() {
         checkpointCount={checkpoints.length}
         undoCount={undoCount}
         redoCount={redoCount}
+        onOpenHelp={() => setActiveHelpId("status")}
       />
 
       {error ? <div className="board-error">{error}</div> : null}
@@ -1515,6 +1528,12 @@ export function BoardPage() {
           />
         ) : null}
       </section>
+      {activeHelpId ? (
+        <HelpModal
+          topic={HELP_TOPICS[activeHelpId]}
+          onClose={() => setActiveHelpId(null)}
+        />
+      ) : null}
     </main>
   );
 }

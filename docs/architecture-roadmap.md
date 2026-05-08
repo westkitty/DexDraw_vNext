@@ -1,4 +1,4 @@
-# DexDraw vNext — Architecture & Roadmap
+# DexDraw — Architecture & Roadmap
 
 > **Status:** Developer prototype / alpha.
 > The items marked **Future** are **not implemented** in this repo.

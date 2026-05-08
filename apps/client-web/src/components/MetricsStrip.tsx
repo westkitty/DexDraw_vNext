@@ -14,6 +14,7 @@ type Props = {
   checkpointCount: number;
   undoCount: number;
   redoCount: number;
+  onOpenHelp: () => void;
 };
 
 export function MetricsStrip({
@@ -24,9 +25,18 @@ export function MetricsStrip({
   checkpointCount,
   undoCount,
   redoCount,
+  onOpenHelp,
 }: Props) {
   return (
     <div className="metrics-strip" data-testid="metrics-strip">
+      <button
+        className="help-trigger"
+        type="button"
+        aria-label="Status FAQ"
+        onClick={onOpenHelp}
+      >
+        FAQ
+      </button>
       <span
         className="metric"
         data-testid="metric-connection"

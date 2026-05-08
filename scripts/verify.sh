@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "==> DexDraw vNext — local verification"
+echo "==> DexDraw — local verification"
 echo ""
 
 if command -v corepack &>/dev/null; then

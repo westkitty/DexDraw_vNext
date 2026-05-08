@@ -1,4 +1,4 @@
-# DexDraw vNext — 5-Minute Demo Script
+# DexDraw — 5-Minute Demo Script
 
 ## Prerequisites
 

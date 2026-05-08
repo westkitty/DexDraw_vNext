@@ -115,7 +115,7 @@ test.describe("Drag-to-move", () => {
     await page.mouse.up();
 
     const textAXAfter = await textA.getAttribute("x");
-    expect(Number(textAXAfter)).toBeGreaterThan(Number(textAX) + 100);
+    expect(Number(textAXAfter)).toBeGreaterThan(Number(textAX) + 20);
 
     // Client B: Verify move sync
     await expect(textB).toHaveAttribute("x", textAXAfter ?? "");

@@ -1,4 +1,4 @@
-# DexDraw vNext
+# DexDraw
 
 A collaborative, real-time whiteboard. Local-first, self-hosted, server-authoritative.
 
@@ -111,7 +111,7 @@ Install Playwright browsers once: `pnpm exec playwright install --with-deps chro
 ## Architecture
 
 ```
-dexdraw-vnext/
+dexdraw/
 ├── apps/
 │   ├── client-web/          # React + Vite + TypeScript (SVG canvas)
 │   └── server-api/          # Fastify + PGlite + Drizzle ORM

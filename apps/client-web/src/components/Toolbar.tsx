@@ -30,6 +30,7 @@ type ToolbarProps = {
   onRestoreCheckpoint: () => void;
   onExportMarkdown: () => void;
   onExportPdf: () => void;
+  onOpenHelp: () => void;
   exportDisabled: boolean;
 };
 
@@ -63,6 +64,7 @@ export function Toolbar({
   onRestoreCheckpoint,
   onExportMarkdown,
   onExportPdf,
+  onOpenHelp,
   exportDisabled,
 }: ToolbarProps) {
   const hasSelection = selectedCount > 0;
@@ -209,6 +211,15 @@ export function Toolbar({
       </button>
 
       <span className="status-pill">Role: {roleLabel}</span>
+      <button
+        className="help-trigger"
+        type="button"
+        aria-label="Tools FAQ"
+        onClick={onOpenHelp}
+      >
+        FAQ
+      </button>
+
       <button
         className="secondary-button"
         type="button"

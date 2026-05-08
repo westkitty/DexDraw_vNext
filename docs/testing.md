@@ -1,4 +1,4 @@
-# DexDraw vNext — Testing Guide
+# DexDraw — Testing Guide
 
 ## Test suite layout
 

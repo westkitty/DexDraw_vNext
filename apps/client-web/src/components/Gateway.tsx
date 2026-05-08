@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { HelpButton } from "./HelpButton";
+import { HelpModal } from "./HelpModal";
+import { HELP_TOPICS } from "./helpContent";
 
 const ENTERED_KEY = "dexdraw-entered";
 
@@ -23,6 +26,7 @@ function markEntered(): void {
 export function Gateway({ children }: { children: ReactNode }) {
   const [entered, setEntered] = useState(hasEntered);
   const [exiting, setExiting] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -48,7 +52,11 @@ export function Gateway({ children }: { children: ReactNode }) {
   }
 
   if (entered) {
-    return <div data-testid="app-shell">{children}</div>;
+    return (
+      <div data-testid="app-shell" data-app-theme="dark">
+        {children}
+      </div>
+    );
   }
 
   return (
@@ -70,15 +78,28 @@ export function Gateway({ children }: { children: ReactNode }) {
         <p className="gateway-subtitle">
           Private. Self-hosted. Server-authoritative.
         </p>
-        <button
-          className="gateway-enter"
-          data-testid="gateway-enter"
-          type="button"
-          onClick={handleEnter}
-        >
-          Enter
-        </button>
+        <div className="gateway-actions">
+          <button
+            className="gateway-enter"
+            data-testid="gateway-enter"
+            type="button"
+            onClick={handleEnter}
+          >
+            Enter
+          </button>
+          <HelpButton
+            label="Gateway FAQ"
+            variant="gateway"
+            onClick={() => setHelpOpen(true)}
+          />
+        </div>
       </div>
+      {helpOpen ? (
+        <HelpModal
+          topic={HELP_TOPICS.gateway}
+          onClose={() => setHelpOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

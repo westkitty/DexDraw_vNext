@@ -1,4 +1,4 @@
-# DexDraw vNext — Release Checklist
+# DexDraw — Release Checklist
 
 Use this checklist before tagging a release candidate.
 

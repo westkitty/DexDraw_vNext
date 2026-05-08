@@ -6,6 +6,9 @@ import {
   setBoardToken,
   setDisplayName,
 } from "../lib/session";
+import { HelpButton } from "./HelpButton";
+import { HelpModal } from "./HelpModal";
+import { HELP_TOPICS, type HelpTopicId } from "./helpContent";
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -19,6 +22,7 @@ export function HomePage() {
   const [joinShareCode, setJoinShareCode] = useState("");
   const [joinDisplayName, setJoinDisplayName] = useState("Guest");
   const [error, setError] = useState<string | null>(null);
+  const [activeHelpId, setActiveHelpId] = useState<HelpTopicId | null>(null);
 
   useEffect(() => {
     fetchTemplates()
@@ -72,11 +76,16 @@ export function HomePage() {
     <main className="shell">
       <div className="home-grid">
         <section className="hero">
+          <div className="section-header section-header--centered">
+            <h1>DexDraw</h1>
+            <HelpButton
+              label="Home FAQ"
+              onClick={() => setActiveHelpId("home-overview")}
+            />
+          </div>
           <p>Private, self-hosted, server-authoritative collaboration.</p>
-          <h1>DexDraw vNext</h1>
           <p>
-            Repository B architecture. Repository A muscle memory. Fewer bad
-            habits.
+            Create boards quickly, share access cleanly, and keep sync sane.
           </p>
         </section>
 
@@ -84,7 +93,13 @@ export function HomePage() {
 
         <div className="panel-grid" data-testid="intake-zone">
           <section className="panel">
-            <h2>Create</h2>
+            <div className="section-header">
+              <h2>Create</h2>
+              <HelpButton
+                label="Create FAQ"
+                onClick={() => setActiveHelpId("home-create")}
+              />
+            </div>
             <p>
               Start a board, get a share code, and keep the server in charge.
             </p>
@@ -135,7 +150,13 @@ export function HomePage() {
           </section>
 
           <section className="panel">
-            <h2>Join</h2>
+            <div className="section-header">
+              <h2>Join</h2>
+              <HelpButton
+                label="Join FAQ"
+                onClick={() => setActiveHelpId("home-join")}
+              />
+            </div>
             <p>
               Use the board identifier and share code. Unknown users do not edit
               by magic.
@@ -183,6 +204,12 @@ export function HomePage() {
           </section>
         </div>
       </div>
+      {activeHelpId ? (
+        <HelpModal
+          topic={HELP_TOPICS[activeHelpId]}
+          onClose={() => setActiveHelpId(null)}
+        />
+      ) : null}
     </main>
   );
 }

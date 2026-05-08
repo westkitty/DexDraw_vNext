@@ -3,11 +3,13 @@ import type { RemotePresence } from "../lib/presence";
 type PresencePanelProps = {
   localDisplayName: string;
   remotePresence: RemotePresence[];
+  onOpenHelp: () => void;
 };
 
 export function PresencePanel({
   localDisplayName,
   remotePresence,
+  onOpenHelp,
 }: PresencePanelProps) {
   const uniqueRemote = Array.from(
     new Map(remotePresence.map((p) => [p.clientId, p])).values(),
@@ -16,6 +18,14 @@ export function PresencePanel({
 
   return (
     <div className="presence-panel" data-testid="presence-panel">
+      <button
+        className="help-trigger"
+        type="button"
+        aria-label="Collaboration FAQ"
+        onClick={onOpenHelp}
+      >
+        FAQ
+      </button>
       <span className="presence-count" data-testid="presence-count">
         {total}
       </span>
