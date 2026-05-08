@@ -149,9 +149,10 @@ select:focus-visible {
 }
 
 .board-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .board-topbar {
@@ -253,6 +254,7 @@ select:focus-visible {
 }
 
 .board-stage {
+  flex: 1;
   position: relative;
   overflow: hidden;
 }
@@ -267,7 +269,7 @@ select:focus-visible {
 
 .canvas {
   width: 100%;
-  height: calc(100vh - 92px);
+  height: 100%;
   display: block;
   touch-action: none;
   background: linear-gradient(rgba(17, 24, 39, 0.04) 1px, transparent 1px),
@@ -280,10 +282,134 @@ select:focus-visible {
   user-select: none;
 }
 
+/* ── Gateway ──────────────────────────────────────────── */
+
+.gateway {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0c0c0e;
+  transition: opacity 600ms ease, transform 600ms ease;
+}
+
+.gateway--exiting {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+}
+
+.gateway-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.45;
+}
+
+.gateway-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+  padding: 48px 32px;
+}
+
+.gateway-title {
+  margin: 0;
+  font-size: clamp(3.5rem, 10vw, 8rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #fff8ef;
+  text-shadow: 0 4px 32px rgba(0, 0, 0, 0.6);
+}
+
+.gateway-subtitle {
+  margin: 0;
+  font-size: 1.05rem;
+  color: rgba(255, 248, 239, 0.62);
+  letter-spacing: 0.02em;
+  max-width: 360px;
+}
+
+.gateway-enter {
+  margin-top: 8px;
+  padding: 14px 52px;
+  border: 1.5px solid rgba(255, 248, 239, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff8ef;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 240ms ease, border-color 240ms ease, transform 160ms
+    ease;
+}
+
+.gateway-enter:hover {
+  background: rgba(255, 248, 239, 0.1);
+  border-color: rgba(255, 248, 239, 0.75);
+  transform: translateY(-2px);
+}
+
+.gateway-enter:focus-visible {
+  outline: 3px solid #f97316;
+  outline-offset: 4px;
+}
+
+/* ── Metrics Strip ─────────────────────────────────────── */
+
+.metrics-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 5px 24px;
+  background: rgba(17, 24, 39, 0.03);
+  border-bottom: 1px solid rgba(17, 24, 39, 0.05);
+  font-size: 11px;
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", monospace;
+  color: #9ca3af;
+}
+
+.metric {
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(17, 24, 39, 0.04);
+  white-space: nowrap;
+}
+
+.metric[data-status="connected"] {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.1);
+}
+
+.metric[data-status="disconnected"] {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.metric[data-available="true"] {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+/* ── Reduced motion ────────────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
   .primary-button,
   .secondary-button,
-  .tool-button {
+  .tool-button,
+  .gateway,
+  .gateway-enter {
     transition: none;
   }
 }
@@ -300,9 +426,5 @@ select:focus-visible {
 
   .board-topbar {
     padding: 14px 16px;
-  }
-
-  .canvas {
-    height: calc(100vh - 120px);
   }
 }

@@ -8,6 +8,8 @@ A collaborative, real-time whiteboard. Local-first, self-hosted, server-authorit
 
 ## Features
 
+- **Gateway shell** — atmospheric intro screen with local video; shows once per browser profile, bypassed by Playwright tests via `storageState`
+- **Metrics strip** — persistent status bar showing connection, participants, object/selected/checkpoint/undo/redo counts
 - **Real-time collaboration** — multiple clients, WebSocket sync, remote cursors and laser pointer
 - **Drawing tools** — freehand pen, rectangle, ellipse, text, sticky note
 - **Editing** — inline text/note editing, selection, multi-select, marquee, drag, resize

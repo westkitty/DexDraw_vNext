@@ -1959,3 +1959,106 @@ Files changed: `apps/client-web/vite.config.ts`, `scripts/verify.sh`, `tests/e2e
 **Presence flake fix:** `scripts/verify.sh --e2e` now uses `--workers=1` and presence tests have explicit 15 s timeouts on WS relay assertions. Not a product bug.
 
 **Official release verification command:** `bash scripts/verify.sh --e2e`
+
+---
+
+### Entry 25 — Tranche 25: Gateway Shell, Metrics Strip, Zonal Clarity
+
+**Date:** 2026-05-08
+
+#### Sub-Entry 25.0 — Session Start / Repo State
+
+**Branch/HEAD at session start:** `main` @ `98676ab` (Bible Entry 24 docs)
+**Tag:** `v0.1.0-rc1` → `d7b5821`
+**State:** untracked `assets/` directory with `DexDraw_Opening.mp4` (1.8 MB)
+
+**Entry 24 confirmed:** clean verification output, 71/71 e2e, all gates green.
+
+**Goal:** Demo-ready gateway shell + workspace zonal clarity + metrics strip.
+
+**Evaluation confirmed:**
+- Forced interactive gateway: appropriate — deliberate cinematic threshold before workspace.
+- Zonal clarity: appropriate — intake/staging vs. output/workspace split.
+- High-visibility metrics: appropriate — persistent connection/participants/objects/selection/checkpoint/undo counters.
+- Visual tone: atmospheric dark gateway → dense utilitarian board workspace.
+- "Absolute Independence" interpreted as: zero external network calls; local app/server/WebSocket traffic allowed.
+
+**Asset:** `assets/DexDraw_Opening.mp4` — 1.8 MB, suitable for repo inclusion.
+Will copy to `apps/client-web/public/DexDraw_Opening.mp4` for Vite local serving.
+
+**Gateway entered flag:** `localStorage.getItem("dexdraw-entered")` — persists per browser profile, not per tab.
+Playwright tests: default `storageState` in `playwright.config.ts` pre-sets the flag; gateway.spec.ts overrides with empty storageState.
+Multi-context tests (`browser.newContext()`, `browser.newPage()`): add `addInitScript` call manually.
+
+#### Sub-Entry 25.1 — P1: Video Asset
+
+Copied `assets/DexDraw_Opening.mp4` → `apps/client-web/public/DexDraw_Opening.mp4`.
+Served locally at `/DexDraw_Opening.mp4` by Vite dev server and production build.
+No CDN, no external media.
+
+#### Sub-Entry 25.2 — P2: Gateway Component
+
+**New file:** `apps/client-web/src/components/Gateway.tsx`
+- `localStorage` key: `"dexdraw-entered"` = `"1"`
+- Enter button triggers 600ms fade/scale exit transition (or immediate for `prefers-reduced-motion: reduce`)
+- Data testids: `gateway-screen`, `gateway-video`, `gateway-enter`, `app-shell`
+- Biome-ignore for `useMediaCaption` not needed (muted video, rule doesn't fire)
+
+**Modified:** `apps/client-web/src/App.tsx` — wrapped router in `<Gateway>`
+
+#### Sub-Entry 25.3 — P3/P4: Zonal Clarity + MetricsStrip
+
+**P3:** `HomePage.tsx` — added `data-testid="intake-zone"` to `.panel-grid`
+`BoardPage.tsx` — `<section className="board-stage" data-testid="workspace-zone">`
+
+**P4:** New file `apps/client-web/src/components/MetricsStrip.tsx`
+Props: connection status, participants, objectCount, selectedCount, checkpointCount, undoCount, redoCount
+Data testids: `metrics-strip`, `metric-connection`, `metric-participants`, `metric-objects`, `metric-selected`, `metric-checkpoints`, `metric-undo`, `metric-redo`
+Placed between `</header>` and board-stage in BoardPage.
+
+**CSS change:** `.board-shell` changed from `display: grid; grid-template-rows: auto 1fr` to `display: flex; flex-direction: column; height: 100vh; overflow: hidden`. `.board-stage { flex: 1 }`. `.canvas { height: 100% }`.
+
+**Critical fix:** `height: 100vh` required on `.board-shell` (not just `min-height`) for SVG `height: 100%` to resolve correctly in flex layout. Without it, canvas height = 0, breaking marquee coordinate math.
+
+#### Sub-Entry 25.4 — P5: Offline Audit
+
+No external network calls introduced. All assets served from `apps/client-web/public/` or Vite bundle.
+Gateway video: `/DexDraw_Opening.mp4` (local Vite static).
+No CDN fonts, no remote analytics, no external APIs.
+
+#### Sub-Entry 25.5 — P6: E2E Tests
+
+**New file:** `tests/e2e/gateway.spec.ts` — 8 tests with `test.use({ storageState: { cookies: [], origins: [] } })` override:
+1. Gateway appears before app-shell
+2. Enter reveals app shell
+3. Video uses local `/DexDraw_Opening.mp4`
+4. Gateway not shown again after entering
+5. Board works after gateway enter
+6. Metrics strip updates object count after drawing
+7. Metrics strip updates selected count after selecting
+8. No external network requests
+
+**addInitScript injections added** to all multi-context pages in:
+- `two-client-sync.spec.ts` (3 browser.newPage() calls)
+- `board-title.spec.ts` (1 browser.newPage() call — already done in prev session)
+- `resize.spec.ts`, `drag-move.spec.ts`, `arrange-duplicate-nudge.spec.ts`, `presence.spec.ts` (browser.newContext() calls — already done in prev session)
+
+**Strict mode fix:** `two-client-sync.spec.ts` `[data-status="connected"]` selector added `.first()` — MetricsStrip also uses `data-status` attribute, causing 2 elements to match.
+
+#### Sub-Entry 25.6 — P7: Docs
+
+- `README.md` — added gateway shell and metrics strip to features list
+- `docs/demo-script.md` — added Step 0: Enter the gateway
+- `docs/release-checklist.md` — updated E2E count to 79/79, added gateway/metrics smoke test items
+
+#### Sub-Entry 25.7 — P8: Verification
+
+All gates green:
+- `pnpm typecheck` — clean
+- `pnpm lint` — clean (fixed import order, removed unused biome-ignore, CSS format auto-fixed)
+- `pnpm build` — clean (272 kB JS bundle)
+- `pnpm test` — 113/113 client, 15/15 server, 5/5 shared
+- `pnpm test:e2e --workers=1` — **79/79** (8 new gateway tests + 71 existing, all passing)
+- `bash scripts/verify.sh --e2e` — exits 0, no proxy noise
+
+**HEAD after commit:** TBD (P9)

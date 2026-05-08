@@ -73,6 +73,9 @@ test("title update is broadcast to second connected client", async ({
 
   // Guest joins
   const guest = await browser.newPage();
+  await guest.addInitScript(() => {
+    localStorage.setItem("dexdraw-entered", "1");
+  });
   await guest.goto("/");
   await guest.getByLabel("Join board ID").fill(boardId ?? "");
   await guest.getByLabel("Join share code").fill(shareCode ?? "");

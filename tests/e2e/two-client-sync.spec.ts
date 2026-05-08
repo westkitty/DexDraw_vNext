@@ -16,6 +16,9 @@ test("two clients sync one persisted stroke", async ({ browser, page }) => {
   expect(shareCode).toBeTruthy();
 
   const secondPage = await browser.newPage();
+  await secondPage.addInitScript(() => {
+    localStorage.setItem("dexdraw-entered", "1");
+  });
   await secondPage.goto("/");
   await secondPage.getByLabel("Join board ID").fill(boardId ?? "");
   await secondPage.getByLabel("Join share code").fill(shareCode ?? "");
@@ -80,13 +83,18 @@ test("presence and PNG export work", async ({ browser, page }) => {
   const boardId = await page.getByTestId("board-id").textContent();
   const shareCode = await page.getByTestId("share-code").textContent();
   const secondPage = await browser.newPage();
+  await secondPage.addInitScript(() => {
+    localStorage.setItem("dexdraw-entered", "1");
+  });
   await secondPage.goto("/");
   await secondPage.getByLabel("Join board ID").fill(boardId ?? "");
   await secondPage.getByLabel("Join share code").fill(shareCode ?? "");
   await secondPage.getByLabel("Join display name").fill("Guest");
   await secondPage.getByRole("button", { name: "Join board" }).click();
-  await expect(page.locator('[data-status="connected"]')).toBeVisible();
-  await expect(secondPage.locator('[data-status="connected"]')).toBeVisible();
+  await expect(page.locator('[data-status="connected"]').first()).toBeVisible();
+  await expect(
+    secondPage.locator('[data-status="connected"]').first(),
+  ).toBeVisible();
 
   const canvas = page.getByTestId("board-canvas");
   const box = await canvas.boundingBox();
@@ -130,6 +138,9 @@ test("reconnect replays missed durable ops after going back online", async ({
   expect(shareCode).toBeTruthy();
 
   const viewer = await browser.newPage();
+  await viewer.addInitScript(() => {
+    localStorage.setItem("dexdraw-entered", "1");
+  });
   await viewer.goto("/");
   await viewer.getByLabel("Join board ID").fill(boardId ?? "");
   await viewer.getByLabel("Join share code").fill(shareCode ?? "");

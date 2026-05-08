@@ -42,6 +42,7 @@ import {
 } from "../lib/session";
 import { BoardCanvas } from "./BoardCanvas";
 import { InlineEditor } from "./InlineEditor";
+import { MetricsStrip } from "./MetricsStrip";
 import { PresencePanel } from "./PresencePanel";
 import { type Tool, Toolbar } from "./Toolbar";
 
@@ -1470,9 +1471,19 @@ export function BoardPage() {
         </div>
       </header>
 
+      <MetricsStrip
+        connection={status}
+        participants={remotePresence.length + 1}
+        objectCount={objects.length}
+        selectedCount={selectedObjectIds.length}
+        checkpointCount={checkpoints.length}
+        undoCount={undoCount}
+        redoCount={redoCount}
+      />
+
       {error ? <div className="board-error">{error}</div> : null}
 
-      <section className="board-stage">
+      <section className="board-stage" data-testid="workspace-zone">
         <BoardCanvas
           ref={canvasRef}
           objects={objects}

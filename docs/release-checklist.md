@@ -41,7 +41,7 @@ bash scripts/verify.sh --e2e      # Full release verification — exits 0 (recom
 - [ ] `pnpm test` — all pass (`113/113` client, `15/15` server as of v0.1.0-rc1)
 - [ ] `pnpm build` — clean
 - [ ] `pnpm lint` — clean
-- [ ] `pnpm test:e2e --workers=1` — all pass (`71/71` as of v0.1.0-rc1)
+- [ ] `pnpm test:e2e --workers=1` — all pass (`79/79` as of v0.1.0-rc1 gateway update)
 - [ ] `bash scripts/verify.sh` — exits 0
 - [ ] `bash scripts/verify.sh --e2e` — exits 0
 
@@ -51,6 +51,9 @@ bash scripts/verify.sh --e2e      # Full release verification — exits 0 (recom
 
 Run `pnpm dev` and open http://127.0.0.1:5173.
 
+- [ ] Gateway screen appears on first visit; Enter button transitions to app shell
+- [ ] Gateway does not re-appear on subsequent visits (localStorage flag set)
+- [ ] Metrics strip visible on board page: connection, participants, objects, selected, checkpoints, undo/redo
 - [ ] Home page loads; Create and Join panels visible
 - [ ] Create board → navigates to board page, title shown, status "Connected"
 - [ ] Share code visible in header

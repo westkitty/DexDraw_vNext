@@ -13,6 +13,16 @@ Wait until both `[server-api]` and `[client-web]` report ready.
 
 ---
 
+## Step 0 — Enter the gateway
+
+1. Open **http://127.0.0.1:5173** in a fresh browser tab.
+2. The atmospheric gateway screen appears — ambient video, title, tagline.
+3. Click **Enter**.
+4. The gateway fades out (600 ms). The app shell loads.
+5. The gateway won't appear again in this browser profile (stored in `localStorage`).
+
+---
+
 ## Step 1 — Create a board (Tab A)
 
 1. Open **http://127.0.0.1:5173** in a browser tab.

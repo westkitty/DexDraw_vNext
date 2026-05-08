@@ -58,6 +58,9 @@ test.describe("presence UI", () => {
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
+    await ctxB.addInitScript(() => {
+      localStorage.setItem("dexdraw-entered", "1");
+    });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
 
@@ -92,6 +95,9 @@ test.describe("presence UI", () => {
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
+    await ctxB.addInitScript(() => {
+      localStorage.setItem("dexdraw-entered", "1");
+    });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
 
@@ -122,6 +128,9 @@ test.describe("presence UI", () => {
 
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
+    });
+    await ctxB.addInitScript(() => {
+      localStorage.setItem("dexdraw-entered", "1");
     });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
@@ -158,6 +167,9 @@ test.describe("presence UI", () => {
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
+    await ctxB.addInitScript(() => {
+      localStorage.setItem("dexdraw-entered", "1");
+    });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
 
@@ -191,6 +203,9 @@ test.describe("presence UI", () => {
 
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
+    });
+    await ctxB.addInitScript(() => {
+      localStorage.setItem("dexdraw-entered", "1");
     });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");

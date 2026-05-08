@@ -82,7 +82,7 @@ export function HomePage() {
 
         {error ? <div className="board-error">{error}</div> : null}
 
-        <div className="panel-grid">
+        <div className="panel-grid" data-testid="intake-zone">
           <section className="panel">
             <h2>Create</h2>
             <p>

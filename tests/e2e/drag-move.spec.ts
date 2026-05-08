@@ -34,6 +34,9 @@ test.describe("Drag-to-move", () => {
     const contextB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
+    await contextB.addInitScript(() => {
+      localStorage.setItem("dexdraw-entered", "1");
+    });
     const pageB = await contextB.newPage();
     await pageB.goto("/");
     await pageB.getByLabel("Join board ID").fill(boardId);
@@ -90,6 +93,9 @@ test.describe("Drag-to-move", () => {
     // Client B: Join
     const contextB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
+    });
+    await contextB.addInitScript(() => {
+      localStorage.setItem("dexdraw-entered", "1");
     });
     const pageB = await contextB.newPage();
     await pageB.goto("/");
