@@ -14,7 +14,7 @@ export default defineConfig({
   webServer: {
     command: "bash scripts/start-dev-servers.sh",
     url: "http://127.0.0.1:5173",
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });
