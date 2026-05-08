@@ -25,8 +25,8 @@ echo "--- lint"
 pnpm lint
 
 if [[ "${1:-}" == "--e2e" ]]; then
-  echo "--- e2e"
-  pnpm test:e2e
+  echo "--- e2e (--workers=1 for stable presence timing)"
+  pnpm test:e2e --workers=1
 fi
 
 echo ""

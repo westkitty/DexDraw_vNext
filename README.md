@@ -72,18 +72,21 @@ pnpm dev
 ## One-Command Verification
 
 ```bash
+# Unit tests, typecheck, build, lint
 bash scripts/verify.sh
+
+# Full release verification — includes E2E browser tests (recommended)
+bash scripts/verify.sh --e2e
 ```
 
-Runs: `pnpm install` → `typecheck` → `test` → `build` → `lint`.
+`bash scripts/verify.sh` runs: `pnpm install` → `typecheck` → `test` → `build` → `lint`.
+`bash scripts/verify.sh --e2e` additionally runs `pnpm test:e2e --workers=1` for stable E2E results.
 
-For E2E browser tests (requires Playwright browsers installed):
+Install Playwright browsers once: `pnpm exec playwright install --with-deps chromium`
 
-```bash
-pnpm test:e2e
-```
-
-Install browsers once with: `pnpm exec playwright install --with-deps chromium`
+> **Note:** Vite's WS proxy emits `ECONNREFUSED`/`EPIPE` log messages when the dev server is
+> shut down while WebSocket connections are still open. These are benign teardown artifacts and
+> are filtered from verification output by the custom logger in `apps/client-web/vite.config.ts`.
 
 ---
 
@@ -98,7 +101,8 @@ Install browsers once with: `pnpm exec playwright install --with-deps chromium`
 | `pnpm test:e2e` | E2E browser tests (Playwright) |
 | `pnpm lint` | Lint + format check (Biome) |
 | `pnpm format` | Auto-format (Biome) |
-| `bash scripts/verify.sh` | Full local CI: typecheck + test + build + lint |
+| `bash scripts/verify.sh` | Local CI: typecheck + test + build + lint |
+| `bash scripts/verify.sh --e2e` | Full release verification (adds E2E with `--workers=1`) |
 
 ---
 

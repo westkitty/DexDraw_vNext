@@ -22,6 +22,11 @@ pnpm --filter @dexdraw/server-api test
 
 # E2E (requires Chromium — install once with the command below)
 pnpm exec playwright install --with-deps chromium
+
+# Stable single-worker run (used by bash scripts/verify.sh --e2e)
+pnpm test:e2e --workers=1
+
+# Parallel run (faster but presence tests may flake under load)
 pnpm test:e2e
 
 # Type check all packages
@@ -54,7 +59,8 @@ pnpm lint
 - Use `page.getByTestId(...)` over CSS selectors where a `data-testid` is available.
 - For dialogs triggered by `window.prompt` / `window.confirm`, register a `page.once("dialog", ...)` handler **before** clicking the button that triggers it.
 - For WS-dependent assertions, prefer `await expect(...).toHaveText(..., { timeout: 5000 })` to tolerate latency.
-- Playwright `workers: 3` is set in `playwright.config.ts` to cap server load; don't raise it without load-testing.
+- Playwright `workers: 3` is the default in `playwright.config.ts`. The release verification script uses `--workers=1` to prevent WS relay timing flakes in presence tests.
+- Vite's WS proxy emits `ECONNREFUSED`/`EPIPE`/`ECONNRESET` log messages when the dev server is torn down while proxy sockets are open. This is benign teardown noise and is suppressed by the custom logger in `apps/client-web/vite.config.ts`. It does not affect test pass/fail results.
 
 ## Adding `data-testid` attributes
 

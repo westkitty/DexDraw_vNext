@@ -25,19 +25,23 @@ Use this checklist before tagging a release candidate.
 Run in order. All must pass before proceeding.
 
 ```bash
-pnpm typecheck          # TypeScript type check — no errors
-pnpm test               # Unit + server vitest tests — all pass
-pnpm build              # Production build — no errors
-pnpm lint               # Biome lint + format — no errors
-pnpm test:e2e           # Playwright E2E — all pass (or known-flaky documented)
-bash scripts/verify.sh  # Full local CI script — exits 0
+pnpm typecheck                    # TypeScript type check — no errors
+pnpm test                         # Unit + server vitest tests — all pass
+pnpm build                        # Production build — no errors
+pnpm lint                         # Biome lint + format — no errors
+pnpm test:e2e --workers=1         # Playwright E2E — all pass (use --workers=1 for stable presence timing)
+bash scripts/verify.sh --e2e      # Full release verification — exits 0 (recommended)
 ```
+
+> **Official release verification command:** `bash scripts/verify.sh --e2e`
+> This runs all gates including E2E with `--workers=1`. Vite WS proxy teardown noise
+> (ECONNREFUSED/EPIPE) is suppressed by the Vite custom logger — see `apps/client-web/vite.config.ts`.
 
 - [ ] `pnpm typecheck` — clean
 - [ ] `pnpm test` — all pass (`113/113` client, `15/15` server as of v0.1.0-rc1)
 - [ ] `pnpm build` — clean
 - [ ] `pnpm lint` — clean
-- [ ] `pnpm test:e2e` — all pass (`71/71` as of v0.1.0-rc1)
+- [ ] `pnpm test:e2e --workers=1` — all pass (`71/71` as of v0.1.0-rc1)
 - [ ] `bash scripts/verify.sh` — exits 0
 - [ ] `bash scripts/verify.sh --e2e` — exits 0
 

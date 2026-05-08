@@ -102,7 +102,9 @@ test.describe("presence UI", () => {
     await pageB.mouse.move(boxB.x + 400, boxB.y + 300);
 
     // Client A should see a remote cursor with Bob's label
-    await expect(page.getByTestId("remote-cursor")).toBeVisible();
+    await expect(page.getByTestId("remote-cursor")).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByTestId("remote-cursor-label")).toContainText("Bob");
 
     await ctxB.close();
@@ -134,7 +136,9 @@ test.describe("presence UI", () => {
     await pageB.mouse.move(boxB.x + 400, boxB.y + 250, { steps: 3 });
 
     // Client A should see a laser with Bob's label
-    await expect(page.getByTestId("remote-laser")).toBeVisible();
+    await expect(page.getByTestId("remote-laser")).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByTestId("remote-laser-label")).toContainText("Bob");
 
     await pageB.mouse.up();

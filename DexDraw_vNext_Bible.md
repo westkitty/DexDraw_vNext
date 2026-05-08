@@ -1853,3 +1853,42 @@ DexDraw vNext is now a complete, documented, fully-verified local release candid
 - No JSON import/export
 - PDF export uses browser print dialog
 - Presence flake under heavy parallel test load is a test infrastructure concern, not a product bug
+
+---
+
+### Entry 24 — Tranche 24: Clean Verification Output (Vite WS Proxy Teardown Noise)
+
+**Date:** 2026-05-08
+
+#### Sub-Entry 24.0 — Session Start / Repo State
+
+**Branch/HEAD at session start:** `main` @ `7093e19` (Bible Entry 23)
+**Tag:** `v0.1.0-rc1` → `ef4be80`
+**State:** clean
+
+**Entry 23 confirmed:** tag `v0.1.0-rc1` present; 71/71 e2e, 113/113 client, 15/15 server all green.
+
+**Goal:** Remove `[vite] ws proxy error: ECONNREFUSED/EPIPE/ECONNRESET` noise from `bash scripts/verify.sh --e2e` output. Tests still pass; noise is cosmetic teardown artifact.
+
+---
+
+#### Sub-Entry 24.1 — Root Cause Finding
+
+**Noise source:** Vite's dev-server HTTP proxy configuration in `apps/client-web/vite.config.ts`.
+
+When Playwright finishes the E2E suite and tears down its `webServer` processes, it kills `server-api` (port 4000) while Vite's WS proxy still has open tunnels to it. Node.js's http-proxy then emits `error` events for each broken socket:
+- `ECONNREFUSED` — can't reach server-api (already dead)
+- `EPIPE` / `ECONNRESET` — writing to a socket whose far end is closed
+
+Vite catches those errors and logs them through its internal `config.logger.error()` call as:
+```
+[vite] ws proxy error:
+Error: write EPIPE
+    at afterWriteDispatched ...
+[vite] ws proxy socket error:
+Error: write ECONNRESET
+```
+
+Playwright captures the dev-server's stdout/stderr and prefixes every line with `[WebServer]`, producing the visible spam. The messages are entirely benign — tests all pass.
+
+**Fix strategy:** Vite exposes a `customLogger` option in `defineConfig`. If we override `logger.error` to drop messages that match `"ws proxy (socket )?error"` + `ECONNREFUSED|EPIPE|ECONNRESET`, the noise is suppressed at source. Real test failures still appear in Playwright's own output (pass/fail counts, assertion errors) and are unaffected by this filter.
