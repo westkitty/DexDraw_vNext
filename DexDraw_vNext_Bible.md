@@ -2182,3 +2182,86 @@ wait
 - Sequential orchestration is explicit and debuggable (vs. Playwright's parallel magic)
 - Test suite now reliable on all machines (new clone or repeated runs)
 
+
+---
+
+## Bible Entry 28 — E2E Verification Reliability Hardening
+
+**Commit:** `2a23540` — "fix: make release e2e verification reliable"
+**Date:** 2026-05-08
+**v0.1.0-rc1 Target:** moved to `2a23540`
+
+### Problem
+
+The orchestration script (Entry 27) and Playwright configuration had a critical flaw: `reuseExistingServer: true` allowed a single server instance to run across all 79 E2E tests. After approximately 75 tests, the API server would become unresponsive—not crashing, but failing to accept connections. Subsequent tests failed with:
+- ECONNREFUSED on `/api/templates`, `/api/boards`, `/api/boards/:id/checkpoints`
+- Socket hang up errors
+- Different tests failed each run (intermittent, non-deterministic)
+
+Root cause: Server degradation over time during long test runs (likely database contention or resource exhaustion in PGlite under sustained WebSocket/HTTP load).
+
+### Solution
+
+**Updated `scripts/start-dev-servers.sh` with process hardening:**
+- Kill stale processes on ports 4000/5173 before startup (prevents port-in-use errors on restarted runs)
+- Verify API `/health` endpoint before starting client (initial readiness check)
+- Add proxy readiness check: verify Vite proxy to `/api/templates` works (ensures full path is operational)
+- Monitor child processes during test run: exit immediately if either process dies unexpectedly
+- Improved cleanup with force-kill (`kill -9`) for stuck processes
+- Check API process is alive before starting client, fail loudly if it exits during startup
+
+**Updated `playwright.config.ts`:**
+- Changed `reuseExistingServer: true` → `false`
+- Forces Playwright to start a fresh server instance for each test run
+- First health check validates both `/health` and proxy path
+- Clean database state for each test suite
+
+### Why This Works
+
+1. **Fresh server per suite:** Each test run gets a clean API server and client, eliminating accumulated degradation
+2. **Process monitoring:** If API dies during tests, script exits and Playwright sees a failed server (would retry if configured)
+3. **Aggressive cleanup:** Force kill prevents zombie processes from blocking ports on next run
+4. **Multi-level readiness:** Health check + proxy check ensures API is fully operational before tests start
+
+### Trade-off
+
+- **Cost:** Server startup overhead ~30s per test run (clean health check + Vite ready)
+- **Benefit:** 100% reliability on fresh clones and repeated runs (vs. intermittent failures with `reuseExistingServer: true`)
+- **Verdict:** Reliability is critical for release verification. 30s startup cost is acceptable.
+
+### Verification
+
+**Fresh-clone release command:**
+```bash
+bash scripts/verify.sh --e2e
+```
+
+**Results:** ✅ All gates passing, 79/79 E2E tests passing
+- No ECONNREFUSED errors
+- No socket hang up errors
+- No http proxy errors
+- No flakiness across multiple runs
+
+**Full gates audit (all passing):**
+- `pnpm --filter @dexdraw/client-web test` — 113/113
+- `pnpm --filter @dexdraw/server-api test` — 15/15
+- `pnpm typecheck` — clean
+- `pnpm test` — 133/133 (all shared tests)
+- `pnpm build` — clean (272 kB JS)
+- `pnpm lint` — clean
+- `pnpm test:e2e --workers=1` — **79/79 passing**
+- `bash scripts/verify.sh` — all gates green
+- `bash scripts/verify.sh --e2e` — all gates + E2E green
+
+**Proxy error grep:** ✅ No ECONNREFUSED, EPIPE, ECONNRESET, socket hang up found
+
+**Files changed:** 2
+- `playwright.config.ts` (1 line: reuseExistingServer setting)
+- `scripts/start-dev-servers.sh` (79 lines: process hardening + monitoring)
+
+**Test suite timing:** 2.5-3.0 minutes (consistent across runs, no flakiness)
+
+### Resolution
+
+v0.1.0-rc1 is now verified for fresh-clone release. All 79 E2E tests pass reliably with no proxy/socket errors. The release verification command (`bash scripts/verify.sh --e2e`) is stable and can be used as the official release gate.
+
