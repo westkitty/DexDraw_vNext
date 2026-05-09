@@ -2998,3 +2998,45 @@ Final state decision:
 - Lightweight validation to be run after patch.
 - Manual browser check required while dev server is running.
 
+
+---
+
+## Bible Entry 30 — Gateway localStorage Repair (2026-05-08)
+
+**Broken state after reverting 48ea444**
+
+Commit `48ea444` ("Add app-like floating HUD and stabilize gateway tests") was a bundled commit: it added the gateway localStorage mechanism (good) alongside a decorative floating HUD and ink-trail effects (bad). The revert `5c5f822` correctly removed the bad code, but also silently removed the localStorage read/write from `Gateway.tsx`.
+
+This left the infrastructure in place (`tests/e2e/.auth/entered.json` seeding `dexdraw-entered=1`, `playwright.config.ts` pointing at it, multi-client tests using `addInitScript` to set it) but `Gateway.tsx` reading none of it — so every Playwright page load hit the gateway screen regardless of localStorage, and 70+ E2E tests timed out waiting for `getByLabel("Board name")`.
+
+**Root cause**
+
+`Gateway.tsx` initialised `entered` as `useState(false)` unconditionally. The `dexdraw-entered` key in localStorage was never checked on mount and never written on Enter. The three-part mechanism only functions when all three parts are wired:
+
+1. `playwright.config.ts` seeds `dexdraw-entered=1` via `entered.json` (was in place ✓)
+2. Multi-client tests call `addInitScript(() => localStorage.setItem("dexdraw-entered","1"))` (was in place ✓)
+3. `Gateway.tsx` reads the key on mount and writes it on Enter (was missing ✗)
+
+**The fix**
+
+`apps/client-web/src/components/Gateway.tsx` — two changes only:
+
+- `useState` initialiser reads `localStorage.getItem("dexdraw-entered") === "1"` (wrapped in try/catch for private-browsing safety)
+- `handleEnter()` writes `localStorage.setItem("dexdraw-entered", "1")` before starting the animation
+
+No test files were changed. No HUD or decorative code was reintroduced. Commit: `7bae574`.
+
+**Validation results**
+
+| Check | Result |
+|-------|--------|
+| `pnpm typecheck` | ✓ passed |
+| `pnpm test` (unit) | ✓ 15/15 passed |
+| `pnpm build` | ✓ passed |
+| `pnpm lint` | ✓ passed (76 files, no issues) |
+| Targeted E2E (`gateway`, `cleanup-copy`, `board-title`) | ✓ 14/14 |
+| Full E2E (`--workers=1`) | ✓ **86/86** |
+
+**Lesson**
+
+Bundled commits that mix behaviour fixes with cosmetic experiments are high-risk. When reverted, the revert silently removes functional code. Future gate: treat cosmetic overlays as a separate PR from any mechanism changes (localStorage, routing, storage state).
