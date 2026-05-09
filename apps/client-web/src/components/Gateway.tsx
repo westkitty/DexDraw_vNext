@@ -5,8 +5,16 @@ import { HelpButton } from "./HelpButton";
 import { HelpModal } from "./HelpModal";
 import { HELP_TOPICS } from "./helpContent";
 
+const ENTERED_KEY = "dexdraw-entered";
+
 export function Gateway({ children }: { children: ReactNode }) {
-  const [entered, setEntered] = useState(false);
+  const [entered, setEntered] = useState(() => {
+    try {
+      return localStorage.getItem(ENTERED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [exiting, setExiting] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -20,6 +28,11 @@ export function Gateway({ children }: { children: ReactNode }) {
   }, []);
 
   function handleEnter() {
+    try {
+      localStorage.setItem(ENTERED_KEY, "1");
+    } catch {
+      // ignore — storage unavailable in some private-browsing modes
+    }
     const reduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
