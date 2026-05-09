@@ -71,179 +71,191 @@ export function Toolbar({
 
   return (
     <div className="toolbar" aria-label="Board toolbar">
-      {tools.map((tool) => (
+      <div className="toolbar-group">
+        {tools.map((tool) => (
+          <button
+            key={tool.id}
+            className="tool-button"
+            type="button"
+            data-active={activeTool === tool.id}
+            aria-pressed={activeTool === tool.id}
+            disabled={tool.id !== "select" && !canDraw}
+            onClick={() => onToolChange(tool.id)}
+          >
+            {tool.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="toolbar-group">
         <button
-          key={tool.id}
-          className="tool-button"
+          className="secondary-button"
           type="button"
-          data-active={activeTool === tool.id}
-          aria-pressed={activeTool === tool.id}
-          disabled={tool.id !== "select" && !canDraw}
-          onClick={() => onToolChange(tool.id)}
+          onClick={onUndo}
+          disabled={undoCount === 0}
+          aria-label="Undo"
+          title="Undo (⌘Z)"
         >
-          {tool.label}
+          Undo
         </button>
-      ))}
-
-      <button
-        className="secondary-button"
-        type="button"
-        onClick={onUndo}
-        disabled={undoCount === 0}
-        aria-label="Undo"
-        title="Undo (⌘Z)"
-      >
-        Undo
-      </button>
-      <button
-        className="secondary-button"
-        type="button"
-        onClick={onRedo}
-        disabled={redoCount === 0}
-        aria-label="Redo"
-        title="Redo (⌘⇧Z)"
-      >
-        Redo
-      </button>
-
-      <button
-        className="secondary-button"
-        type="button"
-        data-testid="duplicate-button"
-        onClick={onDuplicate}
-        disabled={!hasSelection || !canDraw}
-        title="Duplicate selection (⌘D)"
-      >
-        Duplicate
-      </button>
-
-      <button
-        className="secondary-button"
-        type="button"
-        data-testid="arrange-front"
-        onClick={() => onArrange("front")}
-        disabled={!hasSelection || !canDraw}
-        aria-label="Bring to front"
-        title="Bring to front (⌘⇧])"
-      >
-        Front
-      </button>
-      <button
-        className="secondary-button"
-        type="button"
-        data-testid="arrange-forward"
-        onClick={() => onArrange("forward")}
-        disabled={!hasSelection || !canDraw}
-        aria-label="Bring forward"
-        title="Bring forward (⌘])"
-      >
-        Forward
-      </button>
-      <button
-        className="secondary-button"
-        type="button"
-        data-testid="arrange-backward"
-        onClick={() => onArrange("backward")}
-        disabled={!hasSelection || !canDraw}
-        aria-label="Send backward"
-        title="Send backward (⌘[)"
-      >
-        Backward
-      </button>
-      <button
-        className="secondary-button"
-        type="button"
-        data-testid="arrange-back"
-        onClick={() => onArrange("back")}
-        disabled={!hasSelection || !canDraw}
-        aria-label="Send to back"
-        title="Send to back (⌘⇧[)"
-      >
-        Back
-      </button>
-
-      {hasSelection ? (
-        <span data-testid="selection-count" aria-live="polite">
-          {selectedCount} selected
-        </span>
-      ) : null}
-
-      <button
-        className="secondary-button"
-        type="button"
-        onClick={onSaveCheckpoint}
-        disabled={!canDraw}
-      >
-        Save Checkpoint
-      </button>
-
-      {checkpoints.length > 0 ? (
-        <select
-          data-testid="checkpoint-select"
-          value={selectedCheckpointId ?? ""}
-          onChange={(e) => onSelectCheckpoint(e.target.value)}
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={onRedo}
+          disabled={redoCount === 0}
+          aria-label="Redo"
+          title="Redo (⌘⇧Z)"
         >
-          {checkpoints.map((cp) => {
-            const date = new Date(cp.createdAt);
-            const ts = date.toLocaleString(undefined, {
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-            return (
-              <option key={cp.id} value={cp.id}>
-                {cp.name} — {ts}
-              </option>
-            );
-          })}
-        </select>
-      ) : null}
+          Redo
+        </button>
+      </div>
 
-      <button
-        className="secondary-button"
-        type="button"
-        data-testid="restore-button"
-        onClick={onRestoreCheckpoint}
-        disabled={!selectedCheckpointId || !canDraw}
-      >
-        Restore
-      </button>
+      <div className="toolbar-group">
+        <button
+          className="secondary-button"
+          type="button"
+          data-testid="duplicate-button"
+          onClick={onDuplicate}
+          disabled={!hasSelection || !canDraw}
+          title="Duplicate selection (⌘D)"
+        >
+          Duplicate
+        </button>
 
-      <span className="status-pill">Role: {roleLabel}</span>
-      <button
-        className="help-trigger"
-        type="button"
-        aria-label="Tools FAQ"
-        onClick={onOpenHelp}
-      >
-        FAQ
-      </button>
+        <button
+          className="secondary-button"
+          type="button"
+          data-testid="arrange-front"
+          onClick={() => onArrange("front")}
+          disabled={!hasSelection || !canDraw}
+          aria-label="Bring to front"
+          title="Bring to front (⌘⇧])"
+        >
+          Front
+        </button>
+        <button
+          className="secondary-button"
+          type="button"
+          data-testid="arrange-forward"
+          onClick={() => onArrange("forward")}
+          disabled={!hasSelection || !canDraw}
+          aria-label="Bring forward"
+          title="Bring forward (⌘])"
+        >
+          Forward
+        </button>
+        <button
+          className="secondary-button"
+          type="button"
+          data-testid="arrange-backward"
+          onClick={() => onArrange("backward")}
+          disabled={!hasSelection || !canDraw}
+          aria-label="Send backward"
+          title="Send backward (⌘[)"
+        >
+          Backward
+        </button>
+        <button
+          className="secondary-button"
+          type="button"
+          data-testid="arrange-back"
+          onClick={() => onArrange("back")}
+          disabled={!hasSelection || !canDraw}
+          aria-label="Send to back"
+          title="Send to back (⌘⇧[)"
+        >
+          Back
+        </button>
 
-      <button
-        className="secondary-button"
-        type="button"
-        onClick={onExportPng}
-        disabled={exportDisabled}
-      >
-        Export PNG
-      </button>
-      <button
-        className="secondary-button"
-        type="button"
-        onClick={onExportMarkdown}
-        disabled={exportDisabled}
-      >
-        Export Markdown
-      </button>
-      <button
-        className="secondary-button"
-        type="button"
-        onClick={onExportPdf}
-        disabled={exportDisabled}
-      >
-        Export PDF
-      </button>
+        {hasSelection ? (
+          <span data-testid="selection-count" aria-live="polite">
+            {selectedCount} selected
+          </span>
+        ) : null}
+      </div>
+
+      <div className="toolbar-group">
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={onSaveCheckpoint}
+          disabled={!canDraw}
+        >
+          Save Checkpoint
+        </button>
+
+        {checkpoints.length > 0 ? (
+          <select
+            data-testid="checkpoint-select"
+            value={selectedCheckpointId ?? ""}
+            onChange={(e) => onSelectCheckpoint(e.target.value)}
+          >
+            {checkpoints.map((cp) => {
+              const date = new Date(cp.createdAt);
+              const ts = date.toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              return (
+                <option key={cp.id} value={cp.id}>
+                  {cp.name} — {ts}
+                </option>
+              );
+            })}
+          </select>
+        ) : null}
+
+        <button
+          className="secondary-button"
+          type="button"
+          data-testid="restore-button"
+          onClick={onRestoreCheckpoint}
+          disabled={!selectedCheckpointId || !canDraw}
+        >
+          Restore
+        </button>
+      </div>
+
+      <div className="toolbar-group">
+        <span className="status-pill">Role: {roleLabel}</span>
+        <button
+          className="help-trigger"
+          type="button"
+          aria-label="Tools FAQ"
+          onClick={onOpenHelp}
+        >
+          FAQ
+        </button>
+      </div>
+
+      <div className="toolbar-group">
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={onExportPng}
+          disabled={exportDisabled}
+        >
+          Export PNG
+        </button>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={onExportMarkdown}
+          disabled={exportDisabled}
+        >
+          Export Markdown
+        </button>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={onExportPdf}
+          disabled={exportDisabled}
+        >
+          Export PDF
+        </button>
+      </div>
     </div>
   );
 }

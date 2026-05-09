@@ -3089,3 +3089,50 @@ Applied component-level and CSS-level visual polish to the home/menu screen and 
 - Board toolbar is more compact.
 - FAQ still opens/closes on board and home sections.
 - Mobile/tablet/desktop remain usable (verified via responsive-layout tests).
+
+## Entry 32 — Floating board chrome visual polish
+
+**Date:** 2026-05-08
+
+**Summary:**
+Improved DexDraw board chrome toward a more app-like floating canvas interface while preserving the existing gateway, home reveal animation, and test-stable interaction model.
+
+**Files changed:**
+- `apps/client-web/src/components/Toolbar.tsx`
+- `apps/client-web/src/styles.css`
+- `DexDraw_vNext_Bible.md`
+
+**Implemented:**
+- Reworked toolbar structure into clearer grouped control islands.
+- Improved board chrome as a floating, compact HUD-style interface.
+- Reduced visual weight and vertical stacking around the canvas.
+- Preserved the existing post-gateway home/menu reveal animation.
+- Preserved the existing gateway behavior and local video entry flow.
+
+**Not implemented / deferred:**
+- No draggable/resizable HUD panels were added in this pass.
+- No runtime UI enhancer was restored.
+
+**Safety constraints preserved:**
+- Gateway localStorage persistence preserved.
+- No `interactionEnhancer.ts`.
+- No runtime DOM mutation.
+- No querySelector-based decoration.
+- Required controls/test IDs/accessibility labels preserved.
+
+**Validation:**
+- `pnpm typecheck`: passed
+- `pnpm test`: passed
+- `pnpm build`: passed
+- `pnpm lint`: passed
+- targeted Playwright E2E: passed
+- full Playwright E2E: passed
+
+**Manual inspection checklist:**
+- Gateway video appears after clearing `dexdraw-entered`.
+- Enter opens the app.
+- Home remains dark/polished.
+- Create/Join panels reveal/fold outward before board navigation.
+- Board toolbar appears as compact floating chrome.
+- FAQ still opens/closes.
+- Mobile/tablet/desktop remain usable.

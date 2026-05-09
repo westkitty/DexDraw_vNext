@@ -300,20 +300,21 @@ select:focus-visible {
 }
 
 .board-topbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 10;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 16px;
-  background: rgba(255, 251, 245, 0.94);
-  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
-  backdrop-filter: blur(8px);
+  gap: 12px;
+  pointer-events: none;
 }
 
 [data-app-theme="dark"] .board-topbar {
-  background: rgba(7, 11, 22, 0.94);
-  border-bottom-color: var(--app-border);
+  /* removed background/border from container */
 }
 
 .board-topbar .tool-button,
@@ -325,11 +326,25 @@ select:focus-visible {
 
 .meta-group,
 .toolbar {
+  pointer-events: auto;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  background: rgba(255, 251, 245, 0.85);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(17, 24, 39, 0.08);
+  border-radius: 16px;
+  padding: 8px 12px;
   min-width: 0;
+  white-space: nowrap;
+}
+
+[data-app-theme="dark"] .meta-group,
+[data-app-theme="dark"] .toolbar {
+  background: rgba(7, 11, 22, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .board-title {
@@ -351,6 +366,31 @@ select:focus-visible {
   border-radius: 4px;
   padding: 2px 4px;
   margin: -2px -4px;
+}
+
+.toolbar {
+  flex-wrap: nowrap;
+  max-width: 100%;
+}
+
+.toolbar-group {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  align-items: center;
+}
+
+.toolbar-group:not(:last-child)::after {
+  content: "";
+  display: block;
+  width: 1px;
+  height: 24px;
+  background: rgba(17, 24, 39, 0.08);
+  margin: 0 4px;
+}
+
+[data-app-theme="dark"] .toolbar-group:not(:last-child)::after {
+  background: var(--app-border);
 }
 
 .board-title--editable:hover {
