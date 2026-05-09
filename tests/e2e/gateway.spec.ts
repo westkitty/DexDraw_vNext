@@ -23,17 +23,15 @@ test("gateway video uses local source path", async ({ page }) => {
   expect(src).toBe("/DexDraw_Opening.mp4");
 });
 
-test("gateway is not shown again after entering (localStorage flag)", async ({
-  page,
-}) => {
+test("gateway is shown again on every fresh app load", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("gateway-enter").click();
   await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
-  // Navigate away and back — should go straight to app shell
+  // A fresh app load must always pass through the animated gateway.
   await page.goto("/");
-  await expect(page.getByTestId("app-shell")).toBeVisible();
-  await expect(page.getByTestId("gateway-screen")).not.toBeVisible();
+  await expect(page.getByTestId("gateway-screen")).toBeVisible();
+  await expect(page.getByTestId("app-shell")).not.toBeVisible();
 });
 
 test("board page works after entering through gateway", async ({ page }) => {
@@ -66,9 +64,9 @@ test("metrics strip updates object count after drawing", async ({ page }) => {
   const canvas = page.getByTestId("board-canvas");
   const box = await canvas.boundingBox();
   if (!box) throw new Error("Canvas not found");
-  await page.mouse.move(box.x + 200, box.y + 200);
+  await page.mouse.move(box.x + 520, box.y + 260);
   await page.mouse.down();
-  await page.mouse.move(box.x + 350, box.y + 300, { steps: 5 });
+  await page.mouse.move(box.x + 680, box.y + 380, { steps: 5 });
   await page.mouse.up();
 
   await expect(page.getByTestId("metric-objects")).toContainText("1");
@@ -91,9 +89,9 @@ test("metrics strip updates selected count after selecting", async ({
   const canvas = page.getByTestId("board-canvas");
   const box = await canvas.boundingBox();
   if (!box) throw new Error("Canvas not found");
-  await page.mouse.move(box.x + 200, box.y + 200);
+  await page.mouse.move(box.x + 520, box.y + 260);
   await page.mouse.down();
-  await page.mouse.move(box.x + 350, box.y + 300, { steps: 5 });
+  await page.mouse.move(box.x + 680, box.y + 380, { steps: 5 });
   await page.mouse.up();
 
   // Before selecting: selected count is 0
@@ -101,7 +99,7 @@ test("metrics strip updates selected count after selecting", async ({
   await expect(page.getByTestId("metric-selected")).toContainText("0");
 
   // Select the rectangle
-  await page.mouse.click(box.x + 275, box.y + 250);
+  await page.getByTestId("rectangle-object").click();
   await expect(page.getByTestId("metric-selected")).toContainText("1");
 });
 

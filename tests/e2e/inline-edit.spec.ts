@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test("inline text editing commits and persists", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Edit Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -33,12 +35,16 @@ test("inline text editing commits and persists", async ({ page }) => {
 
   // Reload and verify persistence
   await page.reload();
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await expect(page.getByTestId("text-object")).toHaveCount(1);
   await expect(page.getByTestId("text-object")).toContainText("Hello Board");
 });
 
 test("inline note editing commits and persists", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Note Edit Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -69,6 +75,8 @@ test("inline note editing commits and persists", async ({ page }) => {
 
   // Reload and verify persistence
   await page.reload();
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await expect(page.getByTestId("note-object")).toHaveCount(1);
   await expect(page.getByTestId("note-object")).toContainText("My note text");
 });
@@ -77,6 +85,8 @@ test("Escape cancels inline editing without changing content", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Cancel Edit Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();

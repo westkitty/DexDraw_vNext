@@ -4,6 +4,8 @@ test("toolbar FAQ opens from an accessible trigger and closes on Escape", async 
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Tools FAQ Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();

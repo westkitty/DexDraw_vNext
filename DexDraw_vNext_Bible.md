@@ -3181,3 +3181,73 @@ Rescue diagnosis found that the live repository state did not reproduce the repo
 - `pnpm lint`: passed.
 - `pnpm test:e2e --workers=1 tests/e2e/gateway.spec.ts tests/e2e/cleanup-copy.spec.ts tests/e2e/theme-default.spec.ts tests/e2e/responsive-layout.spec.ts tests/e2e/help-modal.spec.ts tests/e2e/board-title.spec.ts`: passed, 19/19.
 - `pnpm test:e2e --workers=1`: passed, 86/86.
+
+## Entry 43 — Mandatory gateway and tactile board chrome repair
+
+**Date:** 2026-05-09
+
+**Summary:**
+The follow-up UI repair made the opening gateway mandatory on fresh loads by removing the `dexdraw-entered` localStorage bypass. The post-gateway home screen now uses a dark paper surface with hover/focus lift reactions and a React-rendered ink trail that dissipates behind pointer movement. Board chrome was reorganized into translucent draggable side panels while preserving the existing board controls, test IDs, canvas interaction, selection, inline editing, presence, exports, and full E2E coverage. The “too many messages” pain point was reduced by throttling presence sends client-side and raising the server message budget.
+
+**Files changed:**
+- `DexDraw_vNext_Bible.md`
+- `apps/client-web/src/components/BoardPage.tsx`
+- `apps/client-web/src/components/Gateway.tsx`
+- `apps/client-web/src/components/HomePage.tsx`
+- `apps/client-web/src/components/Toolbar.tsx`
+- `apps/client-web/src/styles.css`
+- `apps/server-api/src/app.ts`
+- `apps/server-api/vitest.config.ts`
+- `playwright.config.ts`
+- `tests/e2e/arrange-duplicate-nudge.spec.ts`
+- `tests/e2e/board-title.spec.ts`
+- `tests/e2e/checkpoint.spec.ts`
+- `tests/e2e/cleanup-copy.spec.ts`
+- `tests/e2e/drag-move.spec.ts`
+- `tests/e2e/gateway.spec.ts`
+- `tests/e2e/help-modal.spec.ts`
+- `tests/e2e/inline-edit.spec.ts`
+- `tests/e2e/marquee.spec.ts`
+- `tests/e2e/multi-select.spec.ts`
+- `tests/e2e/pointer-event-routing.spec.ts`
+- `tests/e2e/presence.spec.ts`
+- `tests/e2e/resize.spec.ts`
+- `tests/e2e/responsive-layout.spec.ts`
+- `tests/e2e/selection-hardening.spec.ts`
+- `tests/e2e/selection-undo.spec.ts`
+- `tests/e2e/theme-default.spec.ts`
+- `tests/e2e/two-client-sync.spec.ts`
+
+**Implemented:**
+- Gateway now opens every fresh app load; localStorage no longer skips the animated welcome window.
+- Gateway video still uses local `DexDraw_Opening.mp4`.
+- Home keeps the visible `DexDraw` heading, required product copy, Create/Join flow, and removes the forbidden visible legacy copy.
+- Home adds dark paper styling, interactive hover/focus/click lift, and a brief ink trail without querySelector decoration or runtime DOM mutation.
+- Board controls are grouped into translucent draggable chrome panels with stable accessible control names.
+- Board chrome layering was repaired so visible panels receive pointer events instead of the canvas intercepting them.
+- Chrome panel remounting during drag was fixed by moving `ChromePanel` to module scope.
+- Presence sends are throttled and the server rate limit was raised to avoid “too many messages” during normal scribbling/presence activity.
+- Server Vitest configuration now runs PGlite-heavy server test files sequentially to avoid runtime starvation timeouts.
+
+**Reverted / deferred:**
+- Deferred any larger board HUD redesign beyond grouped draggable chrome.
+- Did not add `interactionEnhancer.ts`.
+- Did not add querySelector/querySelectorAll decoration.
+- Did not weaken assertions; E2E helpers were updated to click through the now-mandatory gateway and to wait for board navigation where needed.
+
+**Safety constraints preserved:**
+- Mandatory gateway entry preserved.
+- No `interactionEnhancer.ts`.
+- No runtime DOM mutation.
+- No querySelector-based decoration.
+- Required controls/test IDs/accessibility labels preserved.
+- `gateway-screen`, `gateway-video`, `gateway-enter`, `app-shell`, `intake-zone`, `workspace-zone`, and `board-canvas` preserved.
+
+**Validation:**
+- `pnpm typecheck`: passed.
+- `pnpm lint`: passed.
+- `pnpm build`: passed.
+- `pnpm test`: passed.
+- `pnpm test:e2e --workers=1 tests/e2e/gateway.spec.ts tests/e2e/cleanup-copy.spec.ts tests/e2e/theme-default.spec.ts tests/e2e/responsive-layout.spec.ts tests/e2e/help-modal.spec.ts tests/e2e/board-title.spec.ts`: passed, 21/21.
+- `pnpm test:e2e --workers=1`: passed, 88/88.
+- Manual Playwright browser smoke at `http://localhost:5173/`: passed; clearing `dexdraw-entered` still showed the gateway, `gateway-video` used `/DexDraw_Opening.mp4`, home rendered with the `DexDraw` heading, board creation routed to `/boards/...`, `board-canvas` rendered, chrome tools rendered, and console/page errors were empty.

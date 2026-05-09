@@ -4,6 +4,8 @@ test("home surface uses DexDraw branding without vNext copy", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
   await expect(
     page.getByRole("heading", { name: "DexDraw", exact: true }),
@@ -16,6 +18,8 @@ test("home surface drops legacy repository comparison copy", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
   await expect(page.getByText(/repository a/i)).toHaveCount(0);
   await expect(page.getByText(/repository b/i)).toHaveCount(0);

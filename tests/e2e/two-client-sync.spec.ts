@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test("two clients sync one persisted stroke", async ({ browser, page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
   await page.getByLabel("Board name").fill("Planning Board");
   await page.getByLabel("Your name").fill("Owner");
@@ -16,10 +18,11 @@ test("two clients sync one persisted stroke", async ({ browser, page }) => {
   expect(shareCode).toBeTruthy();
 
   const secondPage = await browser.newPage();
-  await secondPage.addInitScript(() => {
-    localStorage.setItem("dexdraw-entered", "1");
-  });
   await secondPage.goto("/");
+  await secondPage.getByTestId("gateway-enter").click();
+  await expect(secondPage.getByTestId("app-shell")).toBeVisible({
+    timeout: 2000,
+  });
   await secondPage.getByLabel("Join board ID").fill(boardId ?? "");
   await secondPage.getByLabel("Join share code").fill(shareCode ?? "");
   await secondPage.getByLabel("Join display name").fill("Guest");
@@ -44,11 +47,17 @@ test("two clients sync one persisted stroke", async ({ browser, page }) => {
   await expect(secondPage.getByTestId("stroke-object")).toHaveCount(1);
 
   await secondPage.reload();
+  await secondPage.getByTestId("gateway-enter").click();
+  await expect(secondPage.getByTestId("app-shell")).toBeVisible({
+    timeout: 2000,
+  });
   await expect(secondPage.getByTestId("stroke-object")).toHaveCount(1);
 });
 
 test("rectangle and text tools create durable objects", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
   await page.getByLabel("Board name").fill("Tools Board");
   await page.getByLabel("Your name").fill("Owner");
@@ -75,6 +84,8 @@ test("rectangle and text tools create durable objects", async ({ page }) => {
 
 test("presence and PNG export work", async ({ browser, page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
   await page.getByLabel("Board name").fill("Presence Board");
   await page.getByLabel("Your name").fill("Owner");
@@ -83,10 +94,11 @@ test("presence and PNG export work", async ({ browser, page }) => {
   const boardId = await page.getByTestId("board-id").textContent();
   const shareCode = await page.getByTestId("share-code").textContent();
   const secondPage = await browser.newPage();
-  await secondPage.addInitScript(() => {
-    localStorage.setItem("dexdraw-entered", "1");
-  });
   await secondPage.goto("/");
+  await secondPage.getByTestId("gateway-enter").click();
+  await expect(secondPage.getByTestId("app-shell")).toBeVisible({
+    timeout: 2000,
+  });
   await secondPage.getByLabel("Join board ID").fill(boardId ?? "");
   await secondPage.getByLabel("Join share code").fill(shareCode ?? "");
   await secondPage.getByLabel("Join display name").fill("Guest");
@@ -127,6 +139,8 @@ test("reconnect replays missed durable ops after going back online", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
 
   await page.getByLabel("Board name").fill("Reconnect Board");
   await page.getByLabel("Your name").fill("Owner");
@@ -138,10 +152,9 @@ test("reconnect replays missed durable ops after going back online", async ({
   expect(shareCode).toBeTruthy();
 
   const viewer = await browser.newPage();
-  await viewer.addInitScript(() => {
-    localStorage.setItem("dexdraw-entered", "1");
-  });
   await viewer.goto("/");
+  await viewer.getByTestId("gateway-enter").click();
+  await expect(viewer.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await viewer.getByLabel("Join board ID").fill(boardId ?? "");
   await viewer.getByLabel("Join share code").fill(shareCode ?? "");
   await viewer.getByLabel("Join display name").fill("Guest");
@@ -179,6 +192,8 @@ test("client creates object then goes offline and back online — no duplicates"
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("No-Dup Reconnect Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -210,5 +225,7 @@ test("client creates object then goes offline and back online — no duplicates"
 
   // Reload to verify server state is also consistent
   await page.reload();
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await expect(page.getByTestId("rectangle-object")).toHaveCount(1);
 });

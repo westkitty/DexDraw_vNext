@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { createBoard, fetchTemplates, joinBoard } from "../lib/api";
 import {
@@ -11,6 +12,13 @@ import { HelpModal } from "./HelpModal";
 import { HELP_TOPICS, type HelpTopicId } from "./helpContent";
 
 const HOME_REVEAL_MS = 560;
+const MAX_INK_DROPS = 14;
+
+type InkDrop = {
+  id: number;
+  x: number;
+  y: number;
+};
 
 function getHomeRevealDelay(): number {
   if (typeof window === "undefined") return 0;
@@ -35,6 +43,8 @@ export function HomePage() {
   const [openingPanel, setOpeningPanel] = useState<"create" | "join" | null>(
     null,
   );
+  const [inkDrops, setInkDrops] = useState<InkDrop[]>([]);
+  const inkIdRef = useRef(0);
 
   useEffect(() => {
     fetchTemplates()
@@ -92,8 +102,31 @@ export function HomePage() {
     }
   }
 
+  function handleInkMove(event: ReactPointerEvent<HTMLElement>) {
+    if (event.pointerType === "touch") return;
+    const id = inkIdRef.current + 1;
+    inkIdRef.current = id;
+    const drop = { id, x: event.clientX, y: event.clientY };
+    setInkDrops((current) => [...current.slice(-MAX_INK_DROPS + 1), drop]);
+    window.setTimeout(() => {
+      setInkDrops((current) => current.filter((item) => item.id !== id));
+    }, 720);
+  }
+
   return (
-    <main className={`shell${openingPanel ? " home-shell--opening" : ""}`}>
+    <main
+      className={`shell${openingPanel ? " home-shell--opening" : ""}`}
+      onPointerMove={handleInkMove}
+    >
+      <div className="ink-trail" aria-hidden="true">
+        {inkDrops.map((drop) => (
+          <span
+            key={drop.id}
+            className="ink-drop"
+            style={{ left: drop.x, top: drop.y }}
+          />
+        ))}
+      </div>
       <div className="home-grid">
         <section className="hero">
           <div className="section-header section-header--centered">

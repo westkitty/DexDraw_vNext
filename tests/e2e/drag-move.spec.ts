@@ -6,6 +6,8 @@ test.describe("Drag-to-move", () => {
   test("select tool + drag moves a rectangle", async ({ page, browser }) => {
     // Client A: Create board and rectangle
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Drag Test Board");
     await page.getByLabel("Your name").fill("Client A");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -34,11 +36,10 @@ test.describe("Drag-to-move", () => {
     const contextB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
-    await contextB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
-    });
     const pageB = await contextB.newPage();
     await pageB.goto("/");
+    await pageB.getByTestId("gateway-enter").click();
+    await expect(pageB.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await pageB.getByLabel("Join board ID").fill(boardId);
     await pageB.getByLabel("Join share code").fill(shareCode);
     await pageB.getByLabel("Join display name").fill("Client B");
@@ -72,6 +73,8 @@ test.describe("Drag-to-move", () => {
 
   test("select tool + drag moves a text object", async ({ page, browser }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Text Drag Board");
     await page.getByLabel("Your name").fill("Client A");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -94,11 +97,10 @@ test.describe("Drag-to-move", () => {
     const contextB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
-    await contextB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
-    });
     const pageB = await contextB.newPage();
     await pageB.goto("/");
+    await pageB.getByTestId("gateway-enter").click();
+    await expect(pageB.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await pageB.getByLabel("Join board ID").fill(boardId);
     await pageB.getByLabel("Join share code").fill(shareCode);
     await pageB.getByLabel("Join display name").fill("Client B");

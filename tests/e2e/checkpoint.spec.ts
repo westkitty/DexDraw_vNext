@@ -4,6 +4,8 @@ test("create checkpoint and restore it removes objects added after checkpoint", 
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Checkpoint Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -41,6 +43,8 @@ test("create checkpoint and restore it removes objects added after checkpoint", 
 
 test("checkpoint state persists across page reload", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Persist Checkpoint Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -60,11 +64,15 @@ test("checkpoint state persists across page reload", async ({ page }) => {
 
   // Reload — checkpoint list should still appear
   await page.reload();
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await expect(page.getByTestId("checkpoint-select")).toBeVisible();
 });
 
 test("Markdown export downloads a .md file", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Export MD Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -86,6 +94,8 @@ test("Markdown export downloads a .md file", async ({ page }) => {
 
 test("PDF export opens a print window", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Export PDF Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();

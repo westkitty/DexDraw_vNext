@@ -7,8 +7,8 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:5173",
     headless: true,
-    // Pre-set the gateway "entered" flag so existing tests skip the gateway.
-    // gateway.spec.ts overrides this with an empty storageState to test the gateway.
+    // The gateway is mandatory on fresh loads; tests explicitly click through it.
+    // Keep the storage file harmless for older test harness compatibility.
     storageState: "tests/e2e/.auth/entered.json",
   },
   webServer: {

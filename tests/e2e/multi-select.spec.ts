@@ -7,6 +7,8 @@ test.describe("Multi-select and Grouped Delete", () => {
     page,
   }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Multi Select Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -48,6 +50,8 @@ test.describe("Multi-select and Grouped Delete", () => {
 
   test("drag multiple objects", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Multi Drag Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();

@@ -4,6 +4,8 @@ test("Select tool selects and Delete key removes an object", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Select Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -28,6 +30,8 @@ test("Select tool selects and Delete key removes an object", async ({
 
 test("Ctrl+Z undoes a delete and Ctrl+Y redoes it", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Undo Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -58,6 +62,8 @@ test("Ctrl+Z undoes a delete and Ctrl+Y redoes it", async ({ page }) => {
 
 test("Ctrl+Z undoes object.create", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Undo Create Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();
@@ -82,6 +88,8 @@ test("Ctrl+Z undoes object.create", async ({ page }) => {
 
 test("Undo and Redo buttons have correct disabled state", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("gateway-enter").click();
+  await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
   await page.getByLabel("Board name").fill("Button State Board");
   await page.getByLabel("Your name").fill("Owner");
   await page.getByRole("button", { name: "Create board" }).click();

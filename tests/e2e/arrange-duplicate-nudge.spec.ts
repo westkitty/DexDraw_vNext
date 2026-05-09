@@ -10,6 +10,8 @@ test.describe("arrange, duplicate, and nudge", () => {
     name: string,
   ) {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill(name);
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -72,11 +74,10 @@ test.describe("arrange, duplicate, and nudge", () => {
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
-    await ctxB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
-    });
     const pageB = await ctxB.newPage();
     await pageB.goto("/");
+    await pageB.getByTestId("gateway-enter").click();
+    await expect(pageB.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await pageB.getByLabel("Join board ID").fill(boardId);
     await pageB.getByLabel("Join share code").fill(shareCode);
     await pageB.getByLabel("Join display name").fill("Client B");
@@ -85,6 +86,8 @@ test.describe("arrange, duplicate, and nudge", () => {
 
     // Reload page A and verify persistence
     await page.reload();
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
 
     await ctxB.close();
@@ -99,15 +102,15 @@ test.describe("arrange, duplicate, and nudge", () => {
     if (!box) throw new Error("Canvas not found");
 
     // Draw two rects at known positions
-    await drawRect(page, box, 100, 100, 200, 180);
-    await drawRect(page, box, 400, 100, 500, 180);
+    await drawRect(page, box, 520, 260, 620, 340);
+    await drawRect(page, box, 760, 260, 860, 340);
     await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
 
     // Shift-select both
     await page.getByRole("button", { name: "Select" }).click();
-    await page.mouse.click(box.x + 150, box.y + 140);
+    await page.mouse.click(box.x + 570, box.y + 300);
     await page.keyboard.down("Shift");
-    await page.mouse.click(box.x + 450, box.y + 140);
+    await page.mouse.click(box.x + 810, box.y + 300);
     await page.keyboard.up("Shift");
     await expect(page.getByTestId("selection-count")).toHaveText("2 selected");
 
@@ -226,13 +229,13 @@ test.describe("arrange, duplicate, and nudge", () => {
     if (!box) throw new Error("Canvas not found");
 
     // Draw rect A (left) then rect B (right) — B has higher zIndex by default
-    await drawRect(page, box, 100, 200, 250, 340);
-    await drawRect(page, box, 400, 200, 550, 340);
+    await drawRect(page, box, 520, 260, 670, 400);
+    await drawRect(page, box, 760, 260, 910, 400);
     await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
 
     // Select first rect (left) and bring it to front
     await page.getByRole("button", { name: "Select" }).click();
-    await page.mouse.click(box.x + 175, box.y + 270);
+    await page.mouse.click(box.x + 595, box.y + 330);
     await page.getByTestId("arrange-front").click();
 
     // Verify SVG DOM order — 2 rects should exist with valid z-indices
@@ -275,6 +278,8 @@ test.describe("arrange, duplicate, and nudge", () => {
 
     // Reload and verify the order is the same
     await page.reload();
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
     const zOrdersAfterReload = await getZOrders();
     expect(zOrdersAfterReload).toEqual(zOrders);
@@ -288,8 +293,8 @@ test.describe("arrange, duplicate, and nudge", () => {
     const box = await canvas.boundingBox();
     if (!box) throw new Error("Canvas not found");
 
-    await drawRect(page, box, 100, 100, 200, 200);
-    await drawRect(page, box, 300, 100, 400, 200);
+    await drawRect(page, box, 520, 260, 620, 360);
+    await drawRect(page, box, 760, 260, 860, 360);
     await expect(page.getByTestId("rectangle-object")).toHaveCount(2);
 
     await page.getByRole("button", { name: "Select" }).click();
@@ -298,17 +303,17 @@ test.describe("arrange, duplicate, and nudge", () => {
     await expect(page.getByTestId("selection-count")).not.toBeVisible();
 
     // Select one
-    await page.mouse.click(box.x + 150, box.y + 150);
+    await page.mouse.click(box.x + 570, box.y + 310);
     await expect(page.getByTestId("selection-count")).toHaveText("1 selected");
 
     // Shift-select second
     await page.keyboard.down("Shift");
-    await page.mouse.click(box.x + 350, box.y + 150);
+    await page.mouse.click(box.x + 810, box.y + 310);
     await page.keyboard.up("Shift");
     await expect(page.getByTestId("selection-count")).toHaveText("2 selected");
 
     // Deselect by clicking empty canvas area
-    await page.mouse.click(box.x + 700, box.y + 400);
+    await page.mouse.click(box.x + 640, box.y + 520);
     await expect(page.getByTestId("selection-count")).not.toBeVisible();
   });
 
@@ -333,11 +338,11 @@ test.describe("arrange, duplicate, and nudge", () => {
     if (!box) throw new Error("canvas bounds missing");
 
     // Draw one rectangle
-    await drawRect(page, box, 100, 80, 260, 200);
+    await drawRect(page, box, 520, 260, 680, 380);
     await expect(page.getByTestId("rectangle-object")).toHaveCount(1);
 
     // Select it
-    await selectObject(page, box, 180, 140);
+    await selectObject(page, box, 600, 320);
     await expect(page.getByTestId("selection-count")).toHaveText("1 selected");
 
     // Cmd+D should duplicate

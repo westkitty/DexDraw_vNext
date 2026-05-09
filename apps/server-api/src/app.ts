@@ -26,7 +26,7 @@ import { type DexDrawStore, createStore } from "./db/store";
 
 const MAX_MESSAGE_BYTES = 64 * 1024;
 const RATE_LIMIT_WINDOW_MS = 1_000;
-const RATE_LIMIT_MAX_MESSAGES = 60;
+const RATE_LIMIT_MAX_MESSAGES = 240;
 
 type BuildAppOptions = {
   dataDir?: string;

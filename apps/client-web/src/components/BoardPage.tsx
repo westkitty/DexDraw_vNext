@@ -8,7 +8,10 @@ import type {
 } from "@dexdraw/shared-protocol";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
+  CSSProperties,
   KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  ReactNode,
   PointerEvent as ReactPointerEvent,
 } from "react";
 import { useParams } from "react-router-dom";
@@ -50,6 +53,26 @@ import { type Tool, Toolbar } from "./Toolbar";
 import { HELP_TOPICS, type HelpTopicId } from "./helpContent";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
+type ChromePanelId =
+  | "details"
+  | "tools"
+  | "edit"
+  | "checkpoints"
+  | "role"
+  | "exports"
+  | "status"
+  | "metrics";
+
+type ChromePosition = {
+  x: number;
+  y: number;
+};
+
+type ChromeDragState = {
+  id: ChromePanelId;
+  offsetX: number;
+  offsetY: number;
+};
 
 type UndoEntry =
   | { kind: "create"; objects: BoardObject[] }
@@ -87,6 +110,9 @@ export function BoardPage() {
     string | null
   >(null);
   const [activeHelpId, setActiveHelpId] = useState<HelpTopicId | null>(null);
+  const [chromePositions, setChromePositions] = useState<
+    Partial<Record<ChromePanelId, ChromePosition>>
+  >({});
 
   const socketRef = useRef<WebSocket | null>(null);
   const clientSeqRef = useRef(0);
@@ -99,6 +125,7 @@ export function BoardPage() {
   const undoStackRef = useRef<UndoEntry[]>([]);
   const redoStackRef = useRef<UndoEntry[]>([]);
   const reconnectTimerRef = useRef<number | null>(null);
+  const lastPresenceSentRef = useRef(0);
   const isDraggingRef = useRef(false);
   const dragStartPosRef = useRef<Point | null>(null);
   const dragInitialObjectsRef = useRef<BoardObject[]>([]);
@@ -114,10 +141,40 @@ export function BoardPage() {
   const resizeInitialObjectRef = useRef<BoardObject | null>(null);
   const resizeStartPosRef = useRef<Point | null>(null);
   const resizeCurrentBoundsRef = useRef<ResizableBounds | null>(null);
+  const chromeDragRef = useRef<ChromeDragState | null>(null);
 
   useEffect(() => {
     objectsRef.current = objects;
   }, [objects]);
+
+  useEffect(() => {
+    function onPointerMove(event: PointerEvent) {
+      updateChromeDrag(event.clientX, event.clientY);
+    }
+
+    function onPointerUp() {
+      chromeDragRef.current = null;
+    }
+
+    function onMouseMove(event: MouseEvent) {
+      updateChromeDrag(event.clientX, event.clientY);
+    }
+
+    function onMouseUp() {
+      chromeDragRef.current = null;
+    }
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
 
   // Auto-select the first checkpoint when one becomes available.
   useEffect(() => {
@@ -437,6 +494,11 @@ export function BoardPage() {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
+    const now = window.performance.now();
+    if (now - lastPresenceSentRef.current < 45) {
+      return;
+    }
+    lastPresenceSentRef.current = now;
     socketRef.current.send(
       JSON.stringify({
         type: presenceType,
@@ -1408,6 +1470,62 @@ export function BoardPage() {
     sendRaw("checkpoint.restore", { id: selectedCheckpointId });
   }
 
+  function handleChromeDragStart(
+    id: ChromePanelId,
+    event: ReactPointerEvent<HTMLElement>,
+  ) {
+    const panel = event.currentTarget.parentElement;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    chromeDragRef.current = {
+      id,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+    };
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  function handleChromeMouseStart(
+    id: ChromePanelId,
+    event: ReactMouseEvent<HTMLElement>,
+  ) {
+    if (event.button !== 0) return;
+    const panel = event.currentTarget.parentElement;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    chromeDragRef.current = {
+      id,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+    };
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  function updateChromeDrag(clientX: number, clientY: number) {
+    const drag = chromeDragRef.current;
+    if (!drag) return;
+    const x = Math.max(8, clientX - drag.offsetX);
+    const y = Math.max(8, clientY - drag.offsetY);
+    setChromePositions((current) => ({
+      ...current,
+      [drag.id]: { x, y },
+    }));
+  }
+
+  function handleChromeDragMove(event: ReactPointerEvent<HTMLElement>) {
+    updateChromeDrag(event.clientX, event.clientY);
+  }
+
+  function handleChromeDragEnd(event: ReactPointerEvent<HTMLElement>) {
+    chromeDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
   const editingObject =
     editingObjectId !== null
       ? objects.find(
@@ -1426,7 +1544,16 @@ export function BoardPage() {
   return (
     <main className="board-shell">
       <header className="board-topbar">
-        <div className="meta-group">
+        <ChromePanel
+          id="details"
+          title="Board"
+          className="meta-group"
+          position={chromePositions.details}
+          onPointerStart={handleChromeDragStart}
+          onMouseStart={handleChromeMouseStart}
+          onPointerMove={handleChromeDragMove}
+          onPointerEnd={handleChromeDragEnd}
+        >
           <div className="board-title-row">
             <BoardTitleInput
               title={boardTitle}
@@ -1445,7 +1572,7 @@ export function BoardPage() {
             Share code:{" "}
             <strong data-testid="share-code">{shareCode ?? "Unknown"}</strong>
           </span>
-        </div>
+        </ChromePanel>
 
         <Toolbar
           activeTool={tool}
@@ -1469,9 +1596,33 @@ export function BoardPage() {
           onExportPdf={handleExportPdf}
           onOpenHelp={() => setActiveHelpId("tools")}
           exportDisabled={objects.length === 0}
+          renderPanel={(id, className, label, children) => (
+            <ChromePanel
+              key={id}
+              id={id as ChromePanelId}
+              title={label}
+              className={className}
+              position={chromePositions[id as ChromePanelId]}
+              onPointerStart={handleChromeDragStart}
+              onMouseStart={handleChromeMouseStart}
+              onPointerMove={handleChromeDragMove}
+              onPointerEnd={handleChromeDragEnd}
+            >
+              {children}
+            </ChromePanel>
+          )}
         />
 
-        <div className="meta-group">
+        <ChromePanel
+          id="status"
+          title="Status"
+          className="meta-group"
+          position={chromePositions.status}
+          onPointerStart={handleChromeDragStart}
+          onMouseStart={handleChromeMouseStart}
+          onPointerMove={handleChromeDragMove}
+          onPointerEnd={handleChromeDragEnd}
+        >
           <span className="status-pill" data-status={status}>
             Status: {status.charAt(0).toUpperCase() + status.slice(1)}
           </span>
@@ -1480,19 +1631,30 @@ export function BoardPage() {
             remotePresence={remotePresence}
             onOpenHelp={() => setActiveHelpId("presence")}
           />
-        </div>
-      </header>
+        </ChromePanel>
 
-      <MetricsStrip
-        connection={status}
-        participants={remotePresence.length + 1}
-        objectCount={objects.length}
-        selectedCount={selectedObjectIds.length}
-        checkpointCount={checkpoints.length}
-        undoCount={undoCount}
-        redoCount={redoCount}
-        onOpenHelp={() => setActiveHelpId("status")}
-      />
+        <ChromePanel
+          id="metrics"
+          title="Metrics"
+          className="metrics-shell"
+          position={chromePositions.metrics}
+          onPointerStart={handleChromeDragStart}
+          onMouseStart={handleChromeMouseStart}
+          onPointerMove={handleChromeDragMove}
+          onPointerEnd={handleChromeDragEnd}
+        >
+          <MetricsStrip
+            connection={status}
+            participants={remotePresence.length + 1}
+            objectCount={objects.length}
+            selectedCount={selectedObjectIds.length}
+            checkpointCount={checkpoints.length}
+            undoCount={undoCount}
+            redoCount={redoCount}
+            onOpenHelp={() => setActiveHelpId("status")}
+          />
+        </ChromePanel>
+      </header>
 
       {error ? <div className="board-error">{error}</div> : null}
 
@@ -1535,6 +1697,59 @@ export function BoardPage() {
         />
       ) : null}
     </main>
+  );
+}
+
+function ChromePanel({
+  id,
+  title,
+  className = "",
+  position,
+  onPointerStart,
+  onMouseStart,
+  onPointerMove,
+  onPointerEnd,
+  children,
+}: {
+  id: ChromePanelId;
+  title: string;
+  className?: string;
+  position?: ChromePosition;
+  onPointerStart: (
+    id: ChromePanelId,
+    event: ReactPointerEvent<HTMLElement>,
+  ) => void;
+  onMouseStart: (
+    id: ChromePanelId,
+    event: ReactMouseEvent<HTMLElement>,
+  ) => void;
+  onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
+  onPointerEnd: (event: ReactPointerEvent<HTMLElement>) => void;
+  children: ReactNode;
+}) {
+  const style: CSSProperties | undefined = position
+    ? { left: position.x, top: position.y }
+    : undefined;
+  return (
+    <section
+      className={`chrome-panel chrome-panel--${id} ${className}${position ? " is-dragged" : ""}`}
+      data-testid={`chrome-panel-${id}`}
+      style={style}
+    >
+      <div
+        className="chrome-drag-handle"
+        data-testid={`chrome-drag-${id}`}
+        onPointerDown={(event) => onPointerStart(id, event)}
+        onMouseDown={(event) => onMouseStart(id, event)}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+      >
+        <span>{title}</span>
+        <span aria-hidden="true">grip</span>
+      </div>
+      <div className="chrome-panel-body">{children}</div>
+    </section>
   );
 }
 
@@ -1594,14 +1809,18 @@ function BoardTitleInput({
   }
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: title rename is a mouse-primary interaction; keyboard users can tab to the input via focus
-    <strong
+    <button
+      type="button"
       className={`board-title${canEdit ? " board-title--editable" : ""}`}
       data-testid="board-title"
       onClick={startEdit}
+      onMouseDown={startEdit}
+      onPointerDown={startEdit}
+      disabled={!canEdit}
+      aria-label="Rename board title"
       title={canEdit ? "Click to rename" : undefined}
     >
       {title}
-    </strong>
+    </button>
   );
 }

@@ -9,9 +9,14 @@ test.describe("presence UI", () => {
     userName: string,
   ) {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill(name);
     await page.getByLabel("Your name").fill(userName);
-    await page.getByRole("button", { name: "Create board" }).click();
+    await Promise.all([
+      page.waitForURL(/\/boards\//),
+      page.getByRole("button", { name: "Create board" }).click(),
+    ]);
     await expect(page.getByTestId("board-canvas")).toBeVisible();
     const boardId = await page.getByTestId("board-id").innerText();
     const shareCode = await page.getByTestId("share-code").innerText();
@@ -25,10 +30,15 @@ test.describe("presence UI", () => {
     userName: string,
   ) {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Join board ID").fill(boardId);
     await page.getByLabel("Join share code").fill(shareCode);
     await page.getByLabel("Join display name").fill(userName);
-    await page.getByRole("button", { name: "Join board" }).click();
+    await Promise.all([
+      page.waitForURL(/\/boards\//),
+      page.getByRole("button", { name: "Join board" }).click(),
+    ]);
     await expect(page.getByTestId("board-canvas")).toBeVisible();
   }
 
@@ -57,9 +67,6 @@ test.describe("presence UI", () => {
     // Client B joins
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
-    });
-    await ctxB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
     });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
@@ -95,9 +102,6 @@ test.describe("presence UI", () => {
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
-    await ctxB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
-    });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
 
@@ -128,9 +132,6 @@ test.describe("presence UI", () => {
 
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
-    });
-    await ctxB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
     });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
@@ -167,9 +168,6 @@ test.describe("presence UI", () => {
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
-    await ctxB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
-    });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
 
@@ -204,9 +202,6 @@ test.describe("presence UI", () => {
     const ctxB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
-    await ctxB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
-    });
     const pageB = await ctxB.newPage();
     await joinBoard(pageB, boardId, shareCode, "Bob");
 
@@ -223,6 +218,8 @@ test.describe("presence UI", () => {
 
     // Reload page A
     await page.reload();
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await expect(page.getByTestId("board-canvas")).toBeVisible();
 
     // No remote presence should persist (it's ephemeral)

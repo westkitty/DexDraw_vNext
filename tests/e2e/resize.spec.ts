@@ -9,6 +9,8 @@ test.describe("Resize handles", () => {
   }) => {
     // Client A: create board + rectangle
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Resize Sync Board");
     await page.getByLabel("Your name").fill("Client A");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -37,11 +39,10 @@ test.describe("Resize handles", () => {
     const contextB = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
-    await contextB.addInitScript(() => {
-      localStorage.setItem("dexdraw-entered", "1");
-    });
     const pageB = await contextB.newPage();
     await pageB.goto("/");
+    await pageB.getByTestId("gateway-enter").click();
+    await expect(pageB.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await pageB.getByLabel("Join board ID").fill(boardId);
     await pageB.getByLabel("Join share code").fill(shareCode);
     await pageB.getByLabel("Join display name").fill("Client B");
@@ -74,6 +75,8 @@ test.describe("Resize handles", () => {
 
     // Reload Client A and verify persistence
     await page.reload();
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await expect(page.getByTestId("rectangle-object")).toBeVisible();
     const rectAfterReload = page.getByTestId("rectangle-object");
     await expect(rectAfterReload).toHaveAttribute("width", newWidth ?? "");
@@ -83,6 +86,8 @@ test.describe("Resize handles", () => {
 
   test("note resize persists", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Note Resize Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -123,6 +128,8 @@ test.describe("Resize handles", () => {
 
     // Reload and verify persistence
     await page.reload();
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await expect(page.getByTestId("note-object")).toBeVisible();
     const reloadedNoteRect = page
       .getByTestId("note-object")
@@ -133,6 +140,8 @@ test.describe("Resize handles", () => {
 
   test("undo and redo work after resize", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Resize Undo Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -189,6 +198,8 @@ test.describe("Resize handles", () => {
 
   test("multi-select does not show resize handles", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("No Handles Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();

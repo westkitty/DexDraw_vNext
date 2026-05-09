@@ -5,6 +5,8 @@ test.describe("marquee selection", () => {
 
   test("drag around two objects selects both", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Marquee Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -49,6 +51,8 @@ test.describe("marquee selection", () => {
     page,
   }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Marquee Delete Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -92,6 +96,8 @@ test.describe("marquee selection", () => {
     page,
   }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Marquee Drag Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -145,6 +151,8 @@ test.describe("marquee selection", () => {
     page,
   }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("No Marquee Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -179,6 +187,8 @@ test.describe("marquee selection", () => {
 
   test("non-select tools do not show marquee", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Pen No Marquee");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
@@ -201,6 +211,8 @@ test.describe("marquee selection", () => {
 
   test("Shift-marquee adds to existing selection", async ({ page }) => {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill("Shift Marquee Board");
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();

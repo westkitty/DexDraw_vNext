@@ -10,6 +10,8 @@ test.describe("pointer-event routing", () => {
     name: string,
   ) {
     await page.goto("/");
+    await page.getByTestId("gateway-enter").click();
+    await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 2000 });
     await page.getByLabel("Board name").fill(name);
     await page.getByLabel("Your name").fill("Owner");
     await page.getByRole("button", { name: "Create board" }).click();
