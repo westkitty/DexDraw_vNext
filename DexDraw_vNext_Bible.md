@@ -3136,3 +3136,48 @@ Improved DexDraw board chrome toward a more app-like floating canvas interface w
 - Board toolbar appears as compact floating chrome.
 - FAQ still opens/closes.
 - Mobile/tablet/desktop remain usable.
+
+## Entry 33 — White-screen rescue and UI stability repair
+
+**Date:** 2026-05-08
+
+**Summary:**
+Rescue diagnosis found that the live repository state did not reproduce the reported browser white screen. Current `HEAD` is `6333202` (`Improve DexDraw floating board chrome`) and matches `origin/main`; the commit is present and was not reverted. Browser automation loaded `http://localhost:5173/`, confirmed the gateway video, entered the app through the persisted gateway flow, confirmed the home page renders, created a board, and confirmed the board route renders with `workspace-zone` and `board-canvas`. No console errors or page errors were observed in the manual Playwright diagnostic checks. Because the current app renders and the full validation gate passes, no risky revert or visual rewrite was applied.
+
+**Files changed:**
+- `DexDraw_vNext_Bible.md`
+
+**Implemented:**
+- Verified the actual Git state without relying on stale terminal claims.
+- Confirmed browser rendering for gateway, home, and board routes.
+- Preserved gateway persistence.
+- Preserved the floating board chrome because current validation does not identify it as a live white-screen cause.
+- Preserved the home reveal animation.
+
+**Reverted / deferred:**
+- Did not revert `6333202`; current evidence shows it renders and passes validation.
+- Deferred any further visual polish; working validated app state is the priority.
+- Did not create or restore any runtime enhancer.
+
+**Safety constraints preserved:**
+- Gateway localStorage persistence preserved.
+- No `interactionEnhancer.ts`.
+- No runtime DOM mutation.
+- No querySelector-based decoration.
+- Required controls/test IDs/accessibility labels preserved.
+
+**Validation:**
+- `git --no-pager log --oneline --decorate -8`: confirmed `6333202` at `HEAD -> main`, also `origin/main`.
+- `git --no-pager branch --show-current`: passed, `main`.
+- `git --no-pager log --oneline --decorate origin/main..HEAD || true`: passed, no local commits ahead of `origin/main`.
+- `git --no-pager diff --stat || true`: passed, no uncommitted source diff before this Bible entry.
+- `git --no-pager diff --cached --stat || true`: passed, no staged diff.
+- `rg -n "interactionEnhancer|querySelector|querySelectorAll" apps/client-web/src apps/client-web/index.html package.json || true`: passed, no matches.
+- `rg -n "display:\s*none|visibility:\s*hidden|opacity:\s*0" apps/client-web/src/styles.css || true`: inspected opacity-only animation/hover/reduced-motion rules; no root/app-shell hiding rule identified.
+- Browser diagnostic via Playwright: passed; gateway video, app shell, home heading, create flow, board route, `workspace-zone`, and `board-canvas` confirmed; console/page errors empty.
+- `pnpm typecheck`: passed.
+- `pnpm build`: passed.
+- `pnpm test`: passed.
+- `pnpm lint`: passed.
+- `pnpm test:e2e --workers=1 tests/e2e/gateway.spec.ts tests/e2e/cleanup-copy.spec.ts tests/e2e/theme-default.spec.ts tests/e2e/responsive-layout.spec.ts tests/e2e/help-modal.spec.ts tests/e2e/board-title.spec.ts`: passed, 19/19.
+- `pnpm test:e2e --workers=1`: passed, 86/86.
