@@ -1,9 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { HelpButton } from "./HelpButton";
-import { HelpModal } from "./HelpModal";
-import { HELP_TOPICS } from "./helpContent";
 
 const ENTERED_KEY = "dexdraw-entered";
 
@@ -16,7 +12,6 @@ export function Gateway({ children }: { children: ReactNode }) {
     }
   });
   const [exiting, setExiting] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -82,19 +77,8 @@ export function Gateway({ children }: { children: ReactNode }) {
           >
             Enter
           </button>
-          <HelpButton
-            label="Gateway FAQ"
-            variant="gateway"
-            onClick={() => setHelpOpen(true)}
-          />
         </div>
       </div>
-      {helpOpen ? (
-        <HelpModal
-          topic={HELP_TOPICS.gateway}
-          onClose={() => setHelpOpen(false)}
-        />
-      ) : null}
     </div>
   );
 }

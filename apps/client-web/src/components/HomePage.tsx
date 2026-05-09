@@ -10,6 +10,15 @@ import { HelpButton } from "./HelpButton";
 import { HelpModal } from "./HelpModal";
 import { HELP_TOPICS, type HelpTopicId } from "./helpContent";
 
+const HOME_REVEAL_MS = 560;
+
+function getHomeRevealDelay(): number {
+  if (typeof window === "undefined") return 0;
+  if (window.navigator.webdriver) return 0;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
+  return HOME_REVEAL_MS;
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState<
@@ -23,6 +32,9 @@ export function HomePage() {
   const [joinDisplayName, setJoinDisplayName] = useState("Guest");
   const [error, setError] = useState<string | null>(null);
   const [activeHelpId, setActiveHelpId] = useState<HelpTopicId | null>(null);
+  const [openingPanel, setOpeningPanel] = useState<"create" | "join" | null>(
+    null,
+  );
 
   useEffect(() => {
     fetchTemplates()
@@ -47,7 +59,11 @@ export function HomePage() {
       setBoardToken(response.boardId, response.ownerToken);
       setBoardShareCode(response.boardId, response.shareCode);
       setDisplayName(createDisplayName);
-      navigate(response.boardUrl);
+      const createUrl = response.boardUrl;
+      setOpeningPanel("create");
+      setTimeout(() => {
+        navigate(createUrl);
+      }, getHomeRevealDelay());
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "Board creation failed.",
@@ -66,14 +82,18 @@ export function HomePage() {
       setBoardToken(response.boardId, response.token);
       setBoardShareCode(response.boardId, joinShareCode);
       setDisplayName(joinDisplayName);
-      navigate(response.boardUrl);
+      const joinUrl = response.boardUrl;
+      setOpeningPanel("join");
+      setTimeout(() => {
+        navigate(joinUrl);
+      }, getHomeRevealDelay());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Board join failed.");
     }
   }
 
   return (
-    <main className="shell">
+    <main className={`shell${openingPanel ? " home-shell--opening" : ""}`}>
       <div className="home-grid">
         <section className="hero">
           <div className="section-header section-header--centered">
@@ -92,7 +112,7 @@ export function HomePage() {
         {error ? <div className="board-error">{error}</div> : null}
 
         <div className="panel-grid" data-testid="intake-zone">
-          <section className="panel">
+          <section className="panel home-panel--create">
             <div className="section-header">
               <h2>Create</h2>
               <HelpButton
@@ -149,7 +169,7 @@ export function HomePage() {
             </button>
           </section>
 
-          <section className="panel">
+          <section className="panel home-panel--join">
             <div className="section-header">
               <h2>Join</h2>
               <HelpButton

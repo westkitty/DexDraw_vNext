@@ -3040,3 +3040,52 @@ No test files were changed. No HUD or decorative code was reintroduced. Commit: 
 **Lesson**
 
 Bundled commits that mix behaviour fixes with cosmetic experiments are high-risk. When reverted, the revert silently removes functional code. Future gate: treat cosmetic overlays as a separate PR from any mechanism changes (localStorage, routing, storage state).
+
+---
+
+## Entry 31 — Post-gateway UI polish and menu reveal animation (2026-05-08)
+
+**Summary:**
+Applied component-level and CSS-level visual polish to the home/menu screen and board chrome. Added a fold-outward reveal animation triggered on successful Create/Join board. Removed the FAQ button from the Gateway screen. Board topbar is now more compact.
+
+**Files changed:**
+- `apps/client-web/src/components/Gateway.tsx` — removed FAQ HelpButton, HelpModal, helpOpen state, and related imports
+- `apps/client-web/src/components/HomePage.tsx` — added `openingPanel` state, `HOME_REVEAL_MS` constant, `getHomeRevealDelay()` helper, deferred navigation via `setTimeout`, and panel class names (`home-panel--create`, `home-panel--join`)
+- `apps/client-web/src/styles.css` — added panel hover lift (dark mode), button ink-wash hover pseudo-element, board topbar compact padding, home reveal animation keyframes and classes, reduced-motion safeguards
+
+**Implemented:**
+- Gateway FAQ button removed — gateway screen now shows only the Enter button and subtitle copy.
+- Home/menu visual polish — dark-mode panels gain a subtle lift on hover with orange glow border hint.
+- Button ink-wash effect — `.primary-button` and `.secondary-button` get a CSS `::after` radial gradient that fades in on hover; no JS pointer listeners.
+- Menu-to-board reveal animation — on successful create/join, the hero fades up and the Create/Join panels fold outward (left/right with slight rotation) over 560ms before navigation. Implemented via `openingPanel` React state and CSS `animation` properties.
+- Playwright/automation timing safeguard — `getHomeRevealDelay()` returns 0 when `window.navigator.webdriver` is true, so tests see immediate navigation with no animation wait.
+- Reduced-motion safeguard — `getHomeRevealDelay()` also returns 0 for `prefers-reduced-motion: reduce`; CSS `@media (prefers-reduced-motion: reduce)` sets `animation: none; opacity: 0` on opening elements.
+- Board chrome compacted — `.board-topbar` padding reduced from `18px 24px` to `10px 16px`; toolbar buttons scoped via `.board-topbar .tool-button / .secondary-button / .help-trigger` at `7px 11px` and `0.875rem`.
+
+**Not implemented / deferred:**
+- Board page full dark-chrome retheme (structural topbar layout changes) was not attempted — layout is already dark via `[data-app-theme="dark"]` and the compact padding achieves sufficient improvement without risking test regressions.
+- Draggable/resizable HUD panels — explicitly excluded from this pass.
+
+**Safety constraints preserved:**
+- Gateway localStorage persistence preserved (`ENTERED_KEY`, `getItem`, `setItem` untouched).
+- No `interactionEnhancer.ts` introduced.
+- No runtime DOM mutation.
+- No `querySelector`-based decoration.
+- Required controls/test IDs/accessibility labels preserved (all 86 E2E tests pass).
+
+**Validation:**
+- `pnpm typecheck`: passed
+- `pnpm test` (unit): passed (128 client + 15 server)
+- `pnpm build`: passed
+- `pnpm lint`: passed (76 files, no issues)
+- targeted Playwright E2E (6 spec files, 19 tests): passed
+- full Playwright E2E (`--workers=1`, 86 tests): **86/86 passed**
+
+**Manual inspection checklist:**
+- Gateway video appears on fresh visit.
+- Enter button dismisses gateway; no FAQ button visible on gateway screen.
+- Home screen is dark/polished; panels lift subtly on hover.
+- Create/Join panels fold outward after successful create/join before board navigation.
+- Board toolbar is more compact.
+- FAQ still opens/closes on board and home sections.
+- Mobile/tablet/desktop remain usable (verified via responsive-layout tests).

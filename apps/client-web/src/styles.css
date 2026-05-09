@@ -111,6 +111,16 @@ select:focus-visible {
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
 }
 
+[data-app-theme="dark"] .panel {
+  transition: box-shadow 240ms ease, transform 220ms ease;
+}
+
+[data-app-theme="dark"] .panel:hover {
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.42), 0 0 0 1px
+    rgba(249, 115, 22, 0.12);
+  transform: translateY(-3px);
+}
+
 .hero h1,
 .panel h2 {
   margin: 0;
@@ -197,7 +207,29 @@ select:focus-visible {
   border: none;
   border-radius: 999px;
   padding: 12px 16px;
+  position: relative;
+  overflow: hidden;
   transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+}
+
+.primary-button::after,
+.secondary-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.18) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+
+.primary-button:not(:disabled):hover::after,
+.secondary-button:not(:disabled):hover::after {
+  opacity: 1;
 }
 
 .primary-button {
@@ -272,8 +304,8 @@ select:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 24px;
+  gap: 10px;
+  padding: 10px 16px;
   background: rgba(255, 251, 245, 0.94);
   border-bottom: 1px solid rgba(17, 24, 39, 0.08);
   backdrop-filter: blur(8px);
@@ -282,6 +314,13 @@ select:focus-visible {
 [data-app-theme="dark"] .board-topbar {
   background: rgba(7, 11, 22, 0.94);
   border-bottom-color: var(--app-border);
+}
+
+.board-topbar .tool-button,
+.board-topbar .secondary-button,
+.board-topbar .help-trigger {
+  padding: 7px 11px;
+  font-size: 0.875rem;
 }
 
 .meta-group,
@@ -593,6 +632,44 @@ select:focus-visible {
   outline-offset: 4px;
 }
 
+/* ── Home reveal animation ──────────────────────────────── */
+
+@keyframes homePanelLeft {
+  to {
+    opacity: 0;
+    transform: translateX(-72px) rotate(-1.5deg) scale(0.97);
+  }
+}
+
+@keyframes homePanelRight {
+  to {
+    opacity: 0;
+    transform: translateX(72px) rotate(1.5deg) scale(0.97);
+  }
+}
+
+@keyframes homeHeroFade {
+  to {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.98);
+  }
+}
+
+.home-shell--opening .hero {
+  animation: homeHeroFade 560ms ease forwards;
+  pointer-events: none;
+}
+
+.home-shell--opening .home-panel--create {
+  animation: homePanelLeft 560ms cubic-bezier(0.55, 0, 0.8, 0.45) forwards;
+  pointer-events: none;
+}
+
+.home-shell--opening .home-panel--join {
+  animation: homePanelRight 560ms cubic-bezier(0.55, 0, 0.8, 0.45) forwards;
+  pointer-events: none;
+}
+
 /* ── Metrics Strip ─────────────────────────────────────── */
 
 .metrics-strip {
@@ -663,9 +740,18 @@ select:focus-visible {
   .secondary-button,
   .tool-button,
   .help-trigger,
+  .primary-button::after,
+  .secondary-button::after,
   .gateway,
   .gateway-enter {
     transition: none;
+  }
+
+  .home-shell--opening .hero,
+  .home-shell--opening .home-panel--create,
+  .home-shell--opening .home-panel--join {
+    animation: none;
+    opacity: 0;
   }
 }
 
