@@ -45,7 +45,10 @@ export function Gateway({ children }: { children: ReactNode }) {
     clearAnimationTimer();
     animationTimerRef.current = setTimeout(
       markAnimationComplete,
-      Math.ceil(duration * 1_000) + 160,
+      Math.max(
+        GATEWAY_ANIMATION_FALLBACK_MS,
+        Math.ceil(duration * 1_000) + 1_000,
+      ),
     );
   }
 
