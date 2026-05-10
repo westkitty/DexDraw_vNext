@@ -16,16 +16,17 @@ Wait until both `[server-api]` and `[client-web]` report ready.
 ## Step 0 — Enter the gateway
 
 1. Open **http://127.0.0.1:5173** in a fresh browser tab.
-2. The atmospheric gateway screen appears — ambient video, title, tagline.
-3. Click **Enter**.
-4. The gateway fades out (600 ms). The app shell loads.
-5. The gateway won't appear again in this browser profile (stored in `localStorage`).
+2. The atmospheric opening animation appears first. The app/canvas is not available during this phase.
+3. After the opening animation completes, the post-animation entry barrier appears.
+4. Click **Enter Canvas**.
+5. The gateway fades out (600 ms). The app shell loads.
+6. On every fresh app/page load, repeat the required sequence: opening animation → post-animation barrier → app/canvas entry.
 
 ---
 
 ## Step 1 — Create a board (Tab A)
 
-1. Open **http://127.0.0.1:5173** in a browser tab.
+1. Open **http://127.0.0.1:5173** in a browser tab and complete the gateway sequence.
 2. Fill in:
    - **Board name:** `Demo Board`
    - **Your name:** `Alice`
@@ -37,7 +38,7 @@ Wait until both `[server-api]` and `[client-web]` report ready.
 
 ## Step 2 — Join from a second client (Tab B)
 
-1. Open **http://127.0.0.1:5173** in a second tab (or a different browser).
+1. Open **http://127.0.0.1:5173** in a second tab (or a different browser) and complete the gateway sequence.
 2. Fill in the **Join** panel:
    - **Board ID:** paste the board UUID from Tab A's URL (`/boards/<uuid>`)
    - **Share code:** the code from step 1
