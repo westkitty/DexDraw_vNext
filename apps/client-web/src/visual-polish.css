@@ -1,4 +1,4 @@
-/* Last-layer overrides must stay tiny. The base styles carry the visual system. */
+/* Last-layer overrides must stay focused. The base styles carry the visual system. */
 
 /* Opening phase should be animation-only: no modal/status copy. */
 .gateway[data-gateway-phase="opening"] .gateway-content,
@@ -20,43 +20,59 @@
 
 /* Compact the create/join menu without disturbing routing or the board shell. */
 .home-grid {
-  max-width: 940px;
+  max-width: 980px;
   min-height: calc(100vh - 48px);
   align-content: center;
+  gap: 18px;
 }
 
 .hero,
 .panel {
-  padding: clamp(18px, 3vw, 24px);
+  padding: clamp(16px, 2.4vw, 22px);
+}
+
+.hero {
+  gap: 10px;
 }
 
 .hero h1 {
-  font-size: clamp(2.8rem, 7vw, 5.8rem);
+  font-size: clamp(2.6rem, 6vw, 5.2rem);
 }
 
 .panel-grid {
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
   gap: 18px;
+}
+
+.field {
+  gap: 6px;
+}
+
+/* Ink must pass over cards; pointer-events remain disabled in the base rule. */
+.ink-trail {
+  z-index: 1200;
+  mix-blend-mode: multiply;
 }
 
 /* Make the cursor trail black and brush-like instead of orange glow. */
 .ink-drop {
-  width: 44px;
+  width: 48px;
   height: 18px;
   border-radius: 70% 42% 64% 38%;
   background: radial-gradient(
       ellipse at 28% 48%,
-      rgba(0, 0, 0, 0.92),
-      rgba(0, 0, 0, 0.74) 38%,
+      rgba(0, 0, 0, 0.95),
+      rgba(0, 0, 0, 0.78) 38%,
       transparent 72%
     ),
     radial-gradient(
       circle at 74% 62%,
-      rgba(0, 0, 0, 0.82),
-      rgba(0, 0, 0, 0.4) 28%,
+      rgba(0, 0, 0, 0.86),
+      rgba(0, 0, 0, 0.46) 28%,
       transparent 56%
     );
-  box-shadow: -18px 4px 0 -9px rgba(0, 0, 0, 0.72), 14px 10px 0 -10px
-    rgba(0, 0, 0, 0.62), 3px 18px 0 -12px rgba(0, 0, 0, 0.52);
+  box-shadow: -18px 4px 0 -9px rgba(0, 0, 0, 0.74), 14px 10px 0 -10px
+    rgba(0, 0, 0, 0.64), 3px 18px 0 -12px rgba(0, 0, 0, 0.56);
   filter: blur(0.35px) contrast(1.35);
   mix-blend-mode: multiply;
   transform-origin: 20% 50%;
@@ -69,18 +85,123 @@
   }
 
   18% {
-    opacity: 0.88;
-    transform: translate(-50%, -50%) rotate(-5deg) scaleX(1.12) scaleY(0.86);
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(-5deg) scaleX(1.15) scaleY(0.86);
   }
 
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) rotate(4deg) scaleX(2.15) scaleY(0.54);
+    transform: translate(-50%, -50%) rotate(4deg) scaleX(2.2) scaleY(0.54);
+  }
+}
+
+/* Board chrome: fold panels by default and stack them in predictable lanes. */
+.board-topbar {
+  pointer-events: none;
+}
+
+.chrome-panel {
+  width: min(270px, calc(100vw - 28px));
+  max-width: min(270px, calc(100vw - 28px));
+  pointer-events: auto;
+  opacity: 0.92;
+}
+
+.chrome-panel:hover,
+.chrome-panel:focus-within,
+.chrome-panel.is-dragged {
+  z-index: 80;
+}
+
+.chrome-drag-handle {
+  min-height: 34px;
+  padding-block: 6px;
+}
+
+.chrome-panel-body {
+  max-height: 0;
+  padding-block: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: max-height 180ms ease, padding-block 180ms ease, opacity 120ms
+    ease;
+}
+
+.chrome-panel:hover .chrome-panel-body,
+.chrome-panel:focus-within .chrome-panel-body,
+.chrome-panel.is-dragged .chrome-panel-body {
+  max-height: min(58vh, 520px);
+  padding-block: 10px;
+  opacity: 1;
+  overflow: auto;
+  pointer-events: auto;
+}
+
+.chrome-panel--tools {
+  top: 14px;
+  left: 14px;
+}
+
+.chrome-panel--edit {
+  top: 62px;
+  left: 14px;
+  right: auto;
+}
+
+.chrome-panel--checkpoints {
+  top: 110px;
+  left: 14px;
+  right: auto;
+}
+
+.chrome-panel--role {
+  top: 158px;
+  left: 14px;
+  bottom: auto;
+}
+
+.chrome-panel--details {
+  left: 14px;
+  bottom: 14px;
+}
+
+.chrome-panel--status {
+  top: 14px;
+  right: 14px;
+}
+
+.chrome-panel--metrics {
+  top: 62px;
+  right: 14px;
+  bottom: auto;
+}
+
+.chrome-panel--exports {
+  right: 14px;
+  bottom: 14px;
+}
+
+.chrome-panel--metrics .chrome-panel-body {
+  max-height: 0;
+}
+
+@media (max-width: 960px) {
+  .chrome-panel .chrome-panel-body {
+    max-height: none;
+    padding-block: 10px;
+    opacity: 1;
+    overflow: visible;
+    pointer-events: auto;
   }
 }
 
 @media (max-width: 720px) {
   .home-grid {
     min-height: auto;
+  }
+
+  .panel-grid {
+    grid-template-columns: 1fr;
   }
 }
