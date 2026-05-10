@@ -22,11 +22,9 @@
       135deg,
       rgba(255, 248, 239, 0.12),
       rgba(255, 248, 239, 0.035)
-    ),
-    rgba(6, 7, 10, 0.54);
-  box-shadow:
-    0 28px 84px rgba(0, 0, 0, 0.48),
-    inset 0 1px rgba(255, 255, 255, 0.09);
+    ), rgba(6, 7, 10, 0.54);
+  box-shadow: 0 28px 84px rgba(0, 0, 0, 0.48), inset 0 1px
+    rgba(255, 255, 255, 0.09);
   backdrop-filter: blur(18px) saturate(1.15);
 }
 
@@ -189,9 +187,8 @@
 }
 
 .tool-button[data-active="true"] {
-  box-shadow:
-    0 0 0 1px rgba(255, 248, 239, 0.28),
-    0 12px 30px rgba(249, 115, 22, 0.24);
+  box-shadow: 0 0 0 1px rgba(255, 248, 239, 0.28), 0 12px 30px
+    rgba(249, 115, 22, 0.24);
 }
 
 .danger-action:not(:disabled) {
