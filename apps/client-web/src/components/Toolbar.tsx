@@ -41,7 +41,12 @@ type ToolbarProps = {
   ) => ReactNode;
 };
 
-const tools: Array<{ id: Tool; label: string; hint: string; shortcut: string }> = [
+const tools: Array<{
+  id: Tool;
+  label: string;
+  hint: string;
+  shortcut: string;
+}> = [
   {
     id: "select",
     label: "Select",
@@ -111,7 +116,8 @@ export function Toolbar({
   renderPanel,
 }: ToolbarProps) {
   const hasSelection = selectedCount > 0;
-  const activeToolConfig = tools.find((item) => item.id === activeTool) ?? tools[0];
+  const activeToolConfig =
+    tools.find((item) => item.id === activeTool) ?? tools[0];
   const panel =
     renderPanel ??
     ((id: string, className: string, label: string, children: ReactNode) => (
@@ -131,9 +137,15 @@ export function Toolbar({
             <span className="toolbar-context-label">Active tool</span>
             <strong>{activeToolConfig.label}</strong>
             <small>{activeToolConfig.hint}</small>
-            <small className="toolbar-shortcut">{activeToolConfig.shortcut}</small>
+            <small className="toolbar-shortcut">
+              {activeToolConfig.shortcut}
+            </small>
           </div>
-          <div className="toolbar-group toolbar-group--tools" role="toolbar" aria-label="Drawing tools">
+          <div
+            className="toolbar-group toolbar-group--tools"
+            role="toolbar"
+            aria-label="Drawing tools"
+          >
             {tools.map((tool) => (
               <button
                 key={tool.id}
@@ -165,7 +177,9 @@ export function Toolbar({
         <>
           <div className="toolbar-context">
             <span className="toolbar-context-label">Selection</span>
-            <strong>{hasSelection ? `${selectedCount} selected` : "Nothing selected"}</strong>
+            <strong>
+              {hasSelection ? `${selectedCount} selected` : "Nothing selected"}
+            </strong>
             <small>
               {hasSelection
                 ? "Use edit controls, keyboard nudges, or arrange buttons."
@@ -173,7 +187,11 @@ export function Toolbar({
             </small>
           </div>
 
-          <div className="toolbar-group" role="toolbar" aria-label="Undo and redo controls">
+          <div
+            className="toolbar-group"
+            role="toolbar"
+            aria-label="Undo and redo controls"
+          >
             <button
               className="secondary-button"
               type="button"
@@ -196,7 +214,11 @@ export function Toolbar({
             </button>
           </div>
 
-          <div className="toolbar-group" role="toolbar" aria-label="Selection arrange controls">
+          <div
+            className="toolbar-group"
+            role="toolbar"
+            aria-label="Selection arrange controls"
+          >
             <button
               className="secondary-button"
               type="button"
