@@ -72,7 +72,8 @@
       rgba(0, 0, 0, 0.54) 30%,
       transparent 58%
     );
-  box-shadow: -20px 5px 0 -10px rgba(0, 0, 0, 0.78), 16px 11px 0 -11px
+  box-shadow:
+    -20px 5px 0 -10px rgba(0, 0, 0, 0.78), 16px 11px 0 -11px
     rgba(0, 0, 0, 0.72), 5px 22px 0 -13px rgba(0, 0, 0, 0.64),
     -6px 18px 0 -14px rgba(0, 0, 0, 0.58);
   filter: blur(0.25px) contrast(1.55) saturate(0.1);
