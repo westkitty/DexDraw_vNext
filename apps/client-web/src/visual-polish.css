@@ -1,0 +1,168 @@
+/* Final visual polish layered last. Keep this file local and surgical. */
+
+/* Opening phase should be animation-only: no modal/status copy. */
+.gateway[data-gateway-phase="opening"] .gateway-content,
+.gateway-status {
+  display: none;
+}
+
+/* After animation, the barrier should contain only the product line and entry. */
+.gateway-barrier {
+  gap: 18px;
+  min-width: min(520px, 92vw);
+}
+
+.gateway-barrier .gateway-subtitle {
+  max-width: 460px;
+  color: rgba(255, 248, 239, 0.86);
+  font-size: clamp(1rem, 2.4vw, 1.2rem);
+  line-height: 1.45;
+}
+
+/* The ink trail was technically present, but buried. Make it visible. */
+.ink-trail {
+  z-index: 40;
+}
+
+.ink-drop {
+  width: 28px;
+  height: 28px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 248, 239, 0.58),
+    rgba(249, 115, 22, 0.36) 34%,
+    rgba(249, 115, 22, 0.08) 62%,
+    transparent 78%
+  );
+  filter: blur(0.5px);
+  mix-blend-mode: screen;
+}
+
+/* Stop FAQ/help from behaving like a nervous little gremlin. */
+.help-modal-backdrop {
+  overscroll-behavior: contain;
+}
+
+.help-modal {
+  animation: none;
+  transform: none;
+}
+
+.help-modal,
+.help-modal * {
+  backface-visibility: hidden;
+}
+
+/* Board chrome: start stacked, folded, and left-aligned instead of scattered. */
+.board-topbar {
+  display: block;
+}
+
+.chrome-panel {
+  left: 14px;
+  right: auto;
+  bottom: auto;
+  width: min(300px, calc(100vw - 28px));
+  max-width: min(300px, calc(100vw - 28px));
+}
+
+.chrome-panel--details {
+  top: 14px;
+  bottom: auto;
+}
+
+.chrome-panel--tools {
+  top: 66px;
+}
+
+.chrome-panel--edit {
+  top: 118px;
+  right: auto;
+}
+
+.chrome-panel--checkpoints {
+  top: 170px;
+  right: auto;
+}
+
+.chrome-panel--role {
+  top: 222px;
+  bottom: auto;
+}
+
+.chrome-panel--exports {
+  top: 274px;
+  right: auto;
+  bottom: auto;
+}
+
+.chrome-panel--status {
+  top: 326px;
+  right: auto;
+}
+
+.chrome-panel--metrics {
+  top: 378px;
+  right: auto;
+  bottom: auto;
+}
+
+.chrome-panel .chrome-drag-handle {
+  min-height: 42px;
+}
+
+.chrome-panel .chrome-panel-body {
+  max-height: 0;
+  padding-block: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    max-height 180ms ease,
+    padding-block 180ms ease,
+    opacity 120ms ease;
+}
+
+.chrome-panel:hover,
+.chrome-panel:focus-within,
+.chrome-panel.is-dragged {
+  z-index: 60;
+}
+
+.chrome-panel:hover .chrome-panel-body,
+.chrome-panel:focus-within .chrome-panel-body,
+.chrome-panel.is-dragged .chrome-panel-body {
+  max-height: min(58vh, 520px);
+  padding-block: 10px;
+  opacity: 1;
+  overflow: auto;
+  pointer-events: auto;
+}
+
+.chrome-panel--tools:hover .chrome-panel-body,
+.chrome-panel--tools:focus-within .chrome-panel-body,
+.chrome-panel--edit:hover .chrome-panel-body,
+.chrome-panel--edit:focus-within .chrome-panel-body,
+.chrome-panel--checkpoints:hover .chrome-panel-body,
+.chrome-panel--checkpoints:focus-within .chrome-panel-body,
+.chrome-panel--role:hover .chrome-panel-body,
+.chrome-panel--role:focus-within .chrome-panel-body,
+.chrome-panel--exports:hover .chrome-panel-body,
+.chrome-panel--exports:focus-within .chrome-panel-body {
+  max-height: min(72vh, 680px);
+}
+
+/* Mobile already stacks panels; keep them usable there. */
+@media (max-width: 960px) {
+  .ink-trail {
+    z-index: 5;
+  }
+
+  .chrome-panel .chrome-panel-body {
+    max-height: none;
+    padding-block: 10px;
+    opacity: 1;
+    overflow: visible;
+    pointer-events: auto;
+  }
+}
