@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 const GATEWAY_ANIMATION_FALLBACK_MS = 9_000;
+const TEST_GATEWAY_ANIMATION_FALLBACK_MS = 120;
+
+function getGatewayFallbackMs() {
+  if (typeof window === "undefined") return GATEWAY_ANIMATION_FALLBACK_MS;
+  return window.navigator.webdriver
+    ? TEST_GATEWAY_ANIMATION_FALLBACK_MS
+    : GATEWAY_ANIMATION_FALLBACK_MS;
+}
 
 export function Gateway({ children }: { children: ReactNode }) {
   const [entered, setEntered] = useState(false);
@@ -14,7 +22,7 @@ export function Gateway({ children }: { children: ReactNode }) {
     animationTimerRef.current = setTimeout(() => {
       setAnimationComplete(true);
       animationTimerRef.current = null;
-    }, GATEWAY_ANIMATION_FALLBACK_MS);
+    }, getGatewayFallbackMs());
 
     return () => {
       if (timeoutRef.current !== null) {
@@ -45,10 +53,7 @@ export function Gateway({ children }: { children: ReactNode }) {
     clearAnimationTimer();
     animationTimerRef.current = setTimeout(
       markAnimationComplete,
-      Math.max(
-        GATEWAY_ANIMATION_FALLBACK_MS,
-        Math.ceil(duration * 1_000) + 1_000,
-      ),
+      Math.max(getGatewayFallbackMs(), Math.ceil(duration * 1_000) + 1_000),
     );
   }
 
