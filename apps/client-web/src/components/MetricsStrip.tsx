@@ -28,11 +28,18 @@ export function MetricsStrip({
   onOpenHelp,
 }: Props) {
   return (
-    <div className="metrics-strip" data-testid="metrics-strip">
+    <div
+      className="metrics-strip"
+      data-testid="metrics-strip"
+      role="status"
+      aria-label="Board status metrics"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <button
         className="help-trigger"
         type="button"
-        aria-label="Status FAQ"
+        aria-label="Open status FAQ"
         onClick={onOpenHelp}
       >
         FAQ
