@@ -18,15 +18,18 @@ logger.error = (msg, options) => {
   origError(msg, options);
 };
 
+const API_TARGET = "http://127.0.0.1:4000";
+const WS_TARGET = "ws://127.0.0.1:4000";
+
 export default defineConfig({
   customLogger: logger,
   plugins: [react()],
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://localhost:4000",
+      "/api": API_TARGET,
       "/ws": {
-        target: "ws://localhost:4000",
+        target: WS_TARGET,
         ws: true,
       },
     },
