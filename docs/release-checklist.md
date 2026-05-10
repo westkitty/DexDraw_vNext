@@ -51,8 +51,10 @@ bash scripts/verify.sh --e2e      # Full release verification — exits 0 (recom
 
 Run `pnpm dev` and open http://127.0.0.1:5173.
 
-- [ ] Gateway screen appears on first visit; Enter button transitions to app shell
-- [ ] Gateway does not re-appear on subsequent visits (localStorage flag set)
+- [ ] Gateway starts in opening animation phase; no app shell or entry button is available during the opening phase
+- [ ] Post-animation barrier appears only after the opening animation completes
+- [ ] Enter Canvas transitions through the intentional gateway fade into the app shell
+- [ ] Reloading or freshly opening the app repeats the required sequence: opening animation → post-animation barrier → app/canvas entry
 - [ ] Metrics strip visible on board page: connection, participants, objects, selected, checkpoints, undo/redo
 - [ ] Home page loads; Create and Join panels visible
 - [ ] Create board → navigates to board page, title shown, status "Connected"
