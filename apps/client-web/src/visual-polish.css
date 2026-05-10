@@ -17,3 +17,70 @@
   font-size: clamp(1rem, 2.4vw, 1.2rem);
   line-height: 1.45;
 }
+
+/* Compact the create/join menu without disturbing routing or the board shell. */
+.home-grid {
+  max-width: 940px;
+  min-height: calc(100vh - 48px);
+  align-content: center;
+}
+
+.hero,
+.panel {
+  padding: clamp(18px, 3vw, 24px);
+}
+
+.hero h1 {
+  font-size: clamp(2.8rem, 7vw, 5.8rem);
+}
+
+.panel-grid {
+  gap: 18px;
+}
+
+/* Make the cursor trail black and brush-like instead of orange glow. */
+.ink-drop {
+  width: 44px;
+  height: 18px;
+  border-radius: 70% 42% 64% 38%;
+  background: radial-gradient(
+      ellipse at 28% 48%,
+      rgba(0, 0, 0, 0.92),
+      rgba(0, 0, 0, 0.74) 38%,
+      transparent 72%
+    ),
+    radial-gradient(
+      circle at 74% 62%,
+      rgba(0, 0, 0, 0.82),
+      rgba(0, 0, 0, 0.4) 28%,
+      transparent 56%
+    );
+  box-shadow: -18px 4px 0 -9px rgba(0, 0, 0, 0.72), 14px 10px 0 -10px
+    rgba(0, 0, 0, 0.62), 3px 18px 0 -12px rgba(0, 0, 0, 0.52);
+  filter: blur(0.35px) contrast(1.35);
+  mix-blend-mode: multiply;
+  transform-origin: 20% 50%;
+}
+
+@keyframes inkFade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(-8deg) scaleX(0.3) scaleY(0.72);
+  }
+
+  18% {
+    opacity: 0.88;
+    transform: translate(-50%, -50%) rotate(-5deg) scaleX(1.12) scaleY(0.86);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(4deg) scaleX(2.15) scaleY(0.54);
+  }
+}
+
+@media (max-width: 720px) {
+  .home-grid {
+    min-height: auto;
+  }
+}
