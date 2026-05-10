@@ -2,13 +2,26 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 const GATEWAY_ANIMATION_FALLBACK_MS = 9_000;
-const TEST_GATEWAY_ANIMATION_FALLBACK_MS = 120;
+const TEST_GATEWAY_ANIMATION_FALLBACK_MS = 900;
+
+function isAutomatedBrowser() {
+  return typeof window !== "undefined" && window.navigator.webdriver;
+}
 
 function getGatewayFallbackMs() {
   if (typeof window === "undefined") return GATEWAY_ANIMATION_FALLBACK_MS;
-  return window.navigator.webdriver
+  return isAutomatedBrowser()
     ? TEST_GATEWAY_ANIMATION_FALLBACK_MS
     : GATEWAY_ANIMATION_FALLBACK_MS;
+}
+
+function getGatewayUnlockDelayMs(videoDurationSeconds: number) {
+  const fallbackMs = getGatewayFallbackMs();
+  if (isAutomatedBrowser()) return fallbackMs;
+  if (!Number.isFinite(videoDurationSeconds) || videoDurationSeconds <= 0) {
+    return fallbackMs;
+  }
+  return Math.max(fallbackMs, Math.ceil(videoDurationSeconds * 1_000) + 1_000);
 }
 
 export function Gateway({ children }: { children: ReactNode }) {
@@ -47,13 +60,10 @@ export function Gateway({ children }: { children: ReactNode }) {
   }
 
   function handleVideoMetadata(event: SyntheticEvent<HTMLVideoElement>) {
-    const duration = event.currentTarget.duration;
-    if (!Number.isFinite(duration) || duration <= 0) return;
-
     clearAnimationTimer();
     animationTimerRef.current = setTimeout(
       markAnimationComplete,
-      Math.max(getGatewayFallbackMs(), Math.ceil(duration * 1_000) + 1_000),
+      getGatewayUnlockDelayMs(event.currentTarget.duration),
     );
   }
 
@@ -88,6 +98,9 @@ export function Gateway({ children }: { children: ReactNode }) {
       data-testid="gateway-screen"
       data-gateway-phase={phase}
       aria-busy={!animationComplete}
+      aria-label={
+        animationComplete ? "DexDraw entry barrier" : "DexDraw opening animation"
+      }
     >
       <video
         className="gateway-video"
@@ -96,6 +109,8 @@ export function Gateway({ children }: { children: ReactNode }) {
         autoPlay
         muted
         playsInline
+        aria-hidden="true"
+        tabIndex={-1}
         onLoadedMetadata={handleVideoMetadata}
         onEnded={markAnimationComplete}
         onError={markAnimationComplete}
