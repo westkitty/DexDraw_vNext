@@ -117,10 +117,8 @@
   opacity: 0;
   overflow: hidden;
   pointer-events: none;
-  transition:
-    max-height 180ms ease,
-    padding-block 180ms ease,
-    opacity 120ms ease;
+  transition: max-height 180ms ease, padding-block 180ms ease, opacity 120ms
+    ease;
 }
 
 .chrome-panel:hover,
