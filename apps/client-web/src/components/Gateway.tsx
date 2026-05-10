@@ -96,7 +96,6 @@ export function Gateway({ children }: { children: ReactNode }) {
         autoPlay
         muted
         playsInline
-        aria-hidden="true"
         onLoadedMetadata={handleVideoMetadata}
         onEnded={markAnimationComplete}
         onError={markAnimationComplete}
