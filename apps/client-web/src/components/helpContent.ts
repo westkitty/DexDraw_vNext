@@ -21,11 +21,15 @@ export type HelpTopic = {
 export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
   gateway: {
     title: "Gateway FAQ",
-    summary: "Quick orientation before you enter the workspace.",
+    summary: "The opening sequence is part of the product, not decoration.",
     sections: [
       {
         heading: "What this screen does",
-        body: "The gateway is the animated intro layer. Press Enter to open the workspace for this visit.",
+        body: "Every fresh DexDraw load starts with the local opening video. After the sequence, the entry barrier appears and lets you intentionally open the workspace.",
+      },
+      {
+        heading: "Why there is a barrier",
+        body: "The barrier separates the atmospheric opening from the working canvas. It prevents accidental entry and makes the transition deliberate.",
       },
       {
         heading: "What gets stored",
@@ -40,7 +44,11 @@ export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
     sections: [
       {
         heading: "Create vs join",
-        body: "Create starts a fresh board and gives you the owner token. Join uses an existing board identifier and share code.",
+        body: "Create starts a fresh board and gives you owner access. Join uses an existing board identifier and share code.",
+      },
+      {
+        heading: "The basic flow",
+        body: "Enter through the gateway, create or join a board, then draw, checkpoint, collaborate, and export.",
       },
       {
         heading: "What you need later",
@@ -54,7 +62,11 @@ export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
     sections: [
       {
         heading: "Board name",
-        body: "Use a name people can recognize in a tab list. You can rename it later from the board header.",
+        body: "Use a name people can recognize in a tab list, export, or demo. You can rename it later from the board header.",
+      },
+      {
+        heading: "Your name",
+        body: "This is the label collaborators see on your cursor, edits, and presence. Use something recognizable. The machine is not psychic.",
       },
       {
         heading: "Template choice",
@@ -72,7 +84,11 @@ export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
       },
       {
         heading: "Share code",
-        body: "The share code grants access for that board. Paste it exactly as given if you want less avoidable suffering.",
+        body: "The share code grants access for that board. DexDraw normalizes it to uppercase while you type.",
+      },
+      {
+        heading: "Display name",
+        body: "Pick a label other collaborators can identify quickly. Collaboration is already chaotic enough.",
       },
     ],
   },
@@ -89,28 +105,33 @@ export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
         heading: "Share code",
         body: "Use the share code with the board identifier when another client needs to join the same board.",
       },
+      {
+        heading: "Connection state",
+        body: "If the connection drops, DexDraw attempts to reconnect and replay missed operations from the server sequence.",
+      },
     ],
   },
   tools: {
     title: "Tools FAQ",
     summary:
-      "Drawing, selection, checkpoints, and exports all live in the toolbar.",
+      "The toolbar now explains the active tool, selection state, checkpoints, and export readiness.",
     sections: [
       {
         heading: "Drawing tools",
-        body: "Pen, rectangle, ellipse, text, note, and laser cover the core object types. Switch back to Select when you need to move or resize existing objects.",
+        body: "Pen, rectangle, ellipse, text, note, and laser cover the core object types. The canvas hint changes based on the active tool when the board is empty.",
       },
       {
         heading: "Selection controls",
         body: "Duplicate, arrange, and keyboard nudge only act on the current selection.",
         bullets: [
           "Use Shift while selecting to build a multi-selection.",
+          "Switch back to Select when you need to move or resize existing objects.",
           "Undo and redo operate on your local action history.",
         ],
       },
       {
         heading: "Checkpoints and exports",
-        body: "Save checkpoints before risky edits. Exports stay disabled until the board actually contains content.",
+        body: "Save checkpoints before risky edits. Restore is intentionally styled as a dangerous action because it rewinds the board. Exports stay disabled until the board actually contains content.",
       },
     ],
   },
@@ -141,6 +162,10 @@ export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
       {
         heading: "Undo and redo counts",
         body: "Those counters show how much local history is currently available in each direction.",
+      },
+      {
+        heading: "When something looks stale",
+        body: "A reconnect clears stale presence and replays missed board operations where possible. If state still looks wrong, reload and re-enter through the gateway.",
       },
     ],
   },
