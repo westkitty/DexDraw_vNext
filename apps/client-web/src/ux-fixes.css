@@ -60,6 +60,98 @@
   margin: 0;
 }
 
+.toolbar-context {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 2px 2px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.toolbar-context-label {
+  color: rgba(240, 238, 228, 0.54);
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", monospace;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.toolbar-context strong {
+  color: var(--app-text-strong, #fffaf0);
+  font-size: 0.98rem;
+  line-height: 1.15;
+}
+
+.toolbar-context small,
+.toolbar-note,
+.empty-inline {
+  color: rgba(240, 238, 228, 0.68);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.toolbar-shortcut,
+.button-count,
+.empty-inline {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.toolbar-shortcut {
+  justify-self: start;
+  padding: 3px 8px;
+}
+
+.button-count {
+  display: inline-flex;
+  min-width: 1.35em;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 1px 5px;
+  font-size: 0.72em;
+}
+
+.toolbar-note {
+  margin: 0;
+  max-width: 180px;
+}
+
+.empty-inline {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.toolbar-group--tools {
+  display: grid;
+  grid-template-columns: 1fr;
+  width: 100%;
+}
+
+.toolbar-group--tools .tool-button {
+  display: flex;
+  justify-content: center;
+  min-width: 88px;
+}
+
+.tool-button[data-active="true"] {
+  box-shadow:
+    0 0 0 1px rgba(255, 248, 239, 0.28),
+    0 12px 30px rgba(249, 115, 22, 0.24);
+}
+
+.danger-action:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #fecaca;
+}
+
+.danger-action:not(:disabled):hover {
+  background: rgba(127, 29, 29, 0.46);
+}
+
 .gateway-enter:disabled,
 .primary-button:disabled,
 .secondary-button:disabled,
@@ -102,5 +194,24 @@
 @media (prefers-reduced-motion: reduce) {
   .gateway-barrier {
     animation: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .toolbar-context {
+    min-width: 180px;
+    max-width: 260px;
+    border-bottom: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0 12px 0 0;
+  }
+
+  .toolbar-group--tools {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .toolbar-note {
+    min-width: 180px;
   }
 }
