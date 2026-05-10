@@ -46,11 +46,28 @@ export function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inkDrops, setInkDrops] = useState<InkDrop[]>([]);
   const inkIdRef = useRef(0);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const inkTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.id === templateId) ?? null,
     [templates, templateId],
   );
+
+  useEffect(() => {
+    return () => {
+      if (navigationTimeoutRef.current !== null) {
+        clearTimeout(navigationTimeoutRef.current);
+        navigationTimeoutRef.current = null;
+      }
+      for (const timeout of inkTimeoutsRef.current) {
+        clearTimeout(timeout);
+      }
+      inkTimeoutsRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     fetchTemplates()
@@ -62,6 +79,16 @@ export function HomePage() {
       })
       .catch((reason: Error) => setError(reason.message));
   }, []);
+
+  function scheduleNavigation(url: string) {
+    if (navigationTimeoutRef.current !== null) {
+      clearTimeout(navigationTimeoutRef.current);
+    }
+    navigationTimeoutRef.current = setTimeout(() => {
+      navigationTimeoutRef.current = null;
+      navigate(url);
+    }, getHomeRevealDelay());
+  }
 
   async function handleCreateBoard() {
     const boardName = createName.trim();
@@ -92,11 +119,8 @@ export function HomePage() {
       setBoardToken(response.boardId, response.ownerToken);
       setBoardShareCode(response.boardId, response.shareCode);
       setDisplayName(ownerName);
-      const createUrl = response.boardUrl;
       setOpeningPanel("create");
-      setTimeout(() => {
-        navigate(createUrl);
-      }, getHomeRevealDelay());
+      scheduleNavigation(response.boardUrl);
     } catch (reason) {
       setIsSubmitting(false);
       setOpeningPanel(null);
@@ -135,11 +159,8 @@ export function HomePage() {
       setBoardToken(response.boardId, response.token);
       setBoardShareCode(response.boardId, shareCode);
       setDisplayName(guestName);
-      const joinUrl = response.boardUrl;
       setOpeningPanel("join");
-      setTimeout(() => {
-        navigate(joinUrl);
-      }, getHomeRevealDelay());
+      scheduleNavigation(response.boardUrl);
     } catch (reason) {
       setIsSubmitting(false);
       setOpeningPanel(null);
@@ -153,9 +174,11 @@ export function HomePage() {
     inkIdRef.current = id;
     const drop = { id, x: event.clientX, y: event.clientY };
     setInkDrops((current) => [...current.slice(-MAX_INK_DROPS + 1), drop]);
-    window.setTimeout(() => {
+    const timeout = setTimeout(() => {
+      inkTimeoutsRef.current.delete(timeout);
       setInkDrops((current) => current.filter((item) => item.id !== id));
     }, 720);
+    inkTimeoutsRef.current.add(timeout);
   }
 
   return (
