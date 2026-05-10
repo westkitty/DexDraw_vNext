@@ -40,6 +40,47 @@ function pointsToPolyline(points: Point[]) {
   return points.map((point) => `${point.x},${point.y}`).join(" ");
 }
 
+function getEmptyCanvasCopy(activeTool?: string) {
+  switch (activeTool) {
+    case "select":
+      return {
+        title: "Nothing to select yet",
+        body: "Choose Pen, Rectangle, Ellipse, Text, or Note to create the first object.",
+      };
+    case "rectangle":
+      return {
+        title: "Drag to place a rectangle",
+        body: "Start anywhere on the canvas, drag to size it, then release.",
+      };
+    case "ellipse":
+      return {
+        title: "Drag to place an ellipse",
+        body: "Pull out the shape from your starting point, then release.",
+      };
+    case "text":
+      return {
+        title: "Click to place text",
+        body: "After it exists, switch to Select and double-click to edit it.",
+      };
+    case "note":
+      return {
+        title: "Click to place a note",
+        body: "Use notes for labels, reminders, and structured thoughts.",
+      };
+    case "laser":
+      return {
+        title: "Laser points, it does not create",
+        body: "Use it to direct collaborators, then switch tools to make objects.",
+      };
+    case "pen":
+    default:
+      return {
+        title: "Drag to draw your first stroke",
+        body: "Use the toolbar when you want shapes, notes, text, checkpoints, or export.",
+      };
+  }
+}
+
 const PADDING = 6;
 
 function SelectionRing({ object }: { object: BoardObject }) {
@@ -101,7 +142,7 @@ function SelectionRing({ object }: { object: BoardObject }) {
 
   if (object.type === "text") {
     const fontSize = object.style.fontSize ?? 18;
-    const width = object.text.length * fontSize * 0.6;
+    const width = Math.max(90, object.text.length * fontSize * 0.6);
     return (
       <rect
         x={object.x - PADDING}
@@ -182,6 +223,8 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
     },
     ref,
   ) {
+    const emptyCopy = getEmptyCanvasCopy(activeTool);
+
     function makeObjectHandlers(id: string) {
       return {
         onPointerDown: (e: ReactPointerEvent<SVGElement>) => {
@@ -217,20 +260,53 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
         onPointerLeave={onPointerUp}
       >
         <title>Collaborative drawing canvas</title>
+        <desc>{`${emptyCopy.title}. ${emptyCopy.body}`}</desc>
 
         {objects.length === 0 ? (
-          <text
-            x="800"
-            y="450"
-            textAnchor="middle"
-            fill="#d4c5b0"
-            fontSize={28}
-            fontFamily="sans-serif"
-            pointerEvents="none"
-            data-testid="empty-board-hint"
-          >
-            Select a tool above to start drawing
-          </text>
+          <g data-testid="empty-board-hint" pointerEvents="none">
+            <rect
+              x="480"
+              y="358"
+              width="640"
+              height="184"
+              rx="28"
+              fill="rgba(255, 248, 239, 0.76)"
+              stroke="rgba(17, 24, 39, 0.14)"
+              strokeWidth="2"
+            />
+            <text
+              x="800"
+              y="424"
+              textAnchor="middle"
+              fill="#1f2937"
+              fontSize={32}
+              fontFamily="Inter, ui-sans-serif, system-ui, sans-serif"
+              fontWeight={800}
+            >
+              {emptyCopy.title}
+            </text>
+            <text
+              x="800"
+              y="470"
+              textAnchor="middle"
+              fill="#4b5563"
+              fontSize={20}
+              fontFamily="Inter, ui-sans-serif, system-ui, sans-serif"
+            >
+              {emptyCopy.body}
+            </text>
+            <text
+              x="800"
+              y="512"
+              textAnchor="middle"
+              fill="#9a3412"
+              fontSize={16}
+              fontFamily="ui-monospace, SFMono-Regular, Cascadia Mono, monospace"
+              fontWeight={700}
+            >
+              Active tool: {activeTool ?? "pen"}
+            </text>
+          </g>
         ) : null}
 
         {objects.map((object) => {
