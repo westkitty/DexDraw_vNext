@@ -99,7 +99,9 @@ export function Gateway({ children }: { children: ReactNode }) {
       data-gateway-phase={phase}
       aria-busy={!animationComplete}
       aria-label={
-        animationComplete ? "DexDraw entry barrier" : "DexDraw opening animation"
+        animationComplete
+          ? "DexDraw entry barrier"
+          : "DexDraw opening animation"
       }
     >
       <video
