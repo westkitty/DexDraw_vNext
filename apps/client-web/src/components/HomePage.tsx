@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { createBoard, fetchTemplates, joinBoard } from "../lib/api";
@@ -13,6 +13,8 @@ import { HELP_TOPICS, type HelpTopicId } from "./helpContent";
 
 const HOME_REVEAL_MS = 560;
 const MAX_INK_DROPS = 14;
+
+type TemplateSummary = { id: string; name: string; description: string };
 
 type InkDrop = {
   id: number;
@@ -29,9 +31,7 @@ function getHomeRevealDelay(): number {
 
 export function HomePage() {
   const navigate = useNavigate();
-  const [templates, setTemplates] = useState<
-    Array<{ id: string; name: string; description: string }>
-  >([]);
+  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [createName, setCreateName] = useState("Untitled board");
   const [createDisplayName, setCreateDisplayName] = useState("Owner");
   const [templateId, setTemplateId] = useState("blank");
@@ -46,6 +46,11 @@ export function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inkDrops, setInkDrops] = useState<InkDrop[]>([]);
   const inkIdRef = useRef(0);
+
+  const selectedTemplate = useMemo(
+    () => templates.find((template) => template.id === templateId) ?? null,
+    [templates, templateId],
+  );
 
   useEffect(() => {
     fetchTemplates()
@@ -68,6 +73,10 @@ export function HomePage() {
     }
     if (!ownerName) {
       setError("Your name is required before creating a board.");
+      return;
+    }
+    if (!templateId) {
+      setError("Choose a template before creating a board.");
       return;
     }
 
@@ -177,6 +186,11 @@ export function HomePage() {
           <p>
             Create boards quickly, share access cleanly, and keep sync sane.
           </p>
+          <ol className="home-steps" aria-label="DexDraw workspace flow">
+            <li>Open through the gateway.</li>
+            <li>Create or join a board.</li>
+            <li>Draw, checkpoint, collaborate, export.</li>
+          </ol>
         </section>
 
         {error ? (
@@ -203,10 +217,16 @@ export function HomePage() {
               <input
                 id="board-name"
                 aria-label="Board name"
+                aria-describedby="board-name-hint"
                 value={createName}
                 onChange={(event) => setCreateName(event.target.value)}
                 disabled={isSubmitting}
+                required
+                placeholder="Planning board, scene map, launch sketch…"
               />
+              <p className="field-hint" id="board-name-hint">
+                Use a name people can recognize when tabs and exports multiply.
+              </p>
             </div>
 
             <div className="field">
@@ -214,10 +234,16 @@ export function HomePage() {
               <input
                 id="your-name"
                 aria-label="Your name"
+                aria-describedby="your-name-hint"
                 value={createDisplayName}
                 onChange={(event) => setCreateDisplayName(event.target.value)}
                 disabled={isSubmitting}
+                required
+                placeholder="Name shown to collaborators"
               />
+              <p className="field-hint" id="your-name-hint">
+                This labels your edits, cursor, and collaboration presence.
+              </p>
             </div>
 
             <div className="field">
@@ -225,9 +251,11 @@ export function HomePage() {
               <select
                 id="template"
                 aria-label="Template"
+                aria-describedby="template-hint"
                 value={templateId}
                 onChange={(event) => setTemplateId(event.target.value)}
                 disabled={isSubmitting || templates.length === 0}
+                required
               >
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
@@ -235,13 +263,17 @@ export function HomePage() {
                   </option>
                 ))}
               </select>
+              <p className="field-hint" id="template-hint">
+                {selectedTemplate?.description ??
+                  "Templates are loading. Try again if the list stays empty."}
+              </p>
             </div>
 
             <button
               className="primary-button"
               type="button"
               onClick={handleCreateBoard}
-              disabled={isSubmitting}
+              disabled={isSubmitting || templates.length === 0}
             >
               {openingPanel === "create" ? "Opening board…" : "Create board"}
             </button>
@@ -265,11 +297,17 @@ export function HomePage() {
               <input
                 id="join-board-id"
                 aria-label="Join board ID"
+                aria-describedby="join-board-id-hint"
                 value={joinBoardId}
                 onChange={(event) => setJoinBoardId(event.target.value)}
                 disabled={isSubmitting}
                 autoComplete="off"
+                required
+                placeholder="Paste the board identifier"
               />
+              <p className="field-hint" id="join-board-id-hint">
+                This identifies the room. The share code grants access.
+              </p>
             </div>
 
             <div className="field">
@@ -277,13 +315,19 @@ export function HomePage() {
               <input
                 id="join-share-code"
                 aria-label="Join share code"
+                aria-describedby="join-share-code-hint"
                 value={joinShareCode}
                 onChange={(event) =>
                   setJoinShareCode(event.target.value.toUpperCase())
                 }
                 disabled={isSubmitting}
                 autoComplete="off"
+                required
+                placeholder="Paste the share code"
               />
+              <p className="field-hint" id="join-share-code-hint">
+                Codes are normalized to uppercase while you type.
+              </p>
             </div>
 
             <div className="field">
@@ -291,10 +335,16 @@ export function HomePage() {
               <input
                 id="join-display-name"
                 aria-label="Join display name"
+                aria-describedby="join-display-name-hint"
                 value={joinDisplayName}
                 onChange={(event) => setJoinDisplayName(event.target.value)}
                 disabled={isSubmitting}
+                required
+                placeholder="Name shown to collaborators"
               />
+              <p className="field-hint" id="join-display-name-hint">
+                Pick a label humans can recognize. Revolutionary concept.
+              </p>
             </div>
 
             <button
