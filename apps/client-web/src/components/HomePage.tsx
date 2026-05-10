@@ -43,6 +43,7 @@ export function HomePage() {
   const [openingPanel, setOpeningPanel] = useState<"create" | "join" | null>(
     null,
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [inkDrops, setInkDrops] = useState<InkDrop[]>([]);
   const inkIdRef = useRef(0);
 
@@ -58,23 +59,38 @@ export function HomePage() {
   }, []);
 
   async function handleCreateBoard() {
+    const boardName = createName.trim();
+    const ownerName = createDisplayName.trim();
+
+    if (!boardName) {
+      setError("Board name is required before creating a board.");
+      return;
+    }
+    if (!ownerName) {
+      setError("Your name is required before creating a board.");
+      return;
+    }
+
     try {
       setError(null);
+      setIsSubmitting(true);
       const response = await createBoard({
-        name: createName,
+        name: boardName,
         templateId,
-        displayName: createDisplayName,
+        displayName: ownerName,
       });
 
       setBoardToken(response.boardId, response.ownerToken);
       setBoardShareCode(response.boardId, response.shareCode);
-      setDisplayName(createDisplayName);
+      setDisplayName(ownerName);
       const createUrl = response.boardUrl;
       setOpeningPanel("create");
       setTimeout(() => {
         navigate(createUrl);
       }, getHomeRevealDelay());
     } catch (reason) {
+      setIsSubmitting(false);
+      setOpeningPanel(null);
       setError(
         reason instanceof Error ? reason.message : "Board creation failed.",
       );
@@ -82,22 +98,42 @@ export function HomePage() {
   }
 
   async function handleJoinBoard() {
+    const boardId = joinBoardId.trim();
+    const shareCode = joinShareCode.trim().toUpperCase();
+    const guestName = joinDisplayName.trim();
+
+    if (!boardId) {
+      setError("Board ID is required before joining a board.");
+      return;
+    }
+    if (!shareCode) {
+      setError("Share code is required before joining a board.");
+      return;
+    }
+    if (!guestName) {
+      setError("Display name is required before joining a board.");
+      return;
+    }
+
     try {
       setError(null);
-      const response = await joinBoard(joinBoardId, {
-        displayName: joinDisplayName,
-        shareCode: joinShareCode,
+      setIsSubmitting(true);
+      const response = await joinBoard(boardId, {
+        displayName: guestName,
+        shareCode,
       });
 
       setBoardToken(response.boardId, response.token);
-      setBoardShareCode(response.boardId, joinShareCode);
-      setDisplayName(joinDisplayName);
+      setBoardShareCode(response.boardId, shareCode);
+      setDisplayName(guestName);
       const joinUrl = response.boardUrl;
       setOpeningPanel("join");
       setTimeout(() => {
         navigate(joinUrl);
       }, getHomeRevealDelay());
     } catch (reason) {
+      setIsSubmitting(false);
+      setOpeningPanel(null);
       setError(reason instanceof Error ? reason.message : "Board join failed.");
     }
   }
@@ -117,6 +153,7 @@ export function HomePage() {
     <main
       className={`shell${openingPanel ? " home-shell--opening" : ""}`}
       onPointerMove={handleInkMove}
+      aria-busy={isSubmitting}
     >
       <div className="ink-trail" aria-hidden="true">
         {inkDrops.map((drop) => (
@@ -142,7 +179,11 @@ export function HomePage() {
           </p>
         </section>
 
-        {error ? <div className="board-error">{error}</div> : null}
+        {error ? (
+          <div className="board-error" role="alert">
+            {error}
+          </div>
+        ) : null}
 
         <div className="panel-grid" data-testid="intake-zone">
           <section className="panel home-panel--create">
@@ -164,6 +205,7 @@ export function HomePage() {
                 aria-label="Board name"
                 value={createName}
                 onChange={(event) => setCreateName(event.target.value)}
+                disabled={isSubmitting}
               />
             </div>
 
@@ -174,6 +216,7 @@ export function HomePage() {
                 aria-label="Your name"
                 value={createDisplayName}
                 onChange={(event) => setCreateDisplayName(event.target.value)}
+                disabled={isSubmitting}
               />
             </div>
 
@@ -184,6 +227,7 @@ export function HomePage() {
                 aria-label="Template"
                 value={templateId}
                 onChange={(event) => setTemplateId(event.target.value)}
+                disabled={isSubmitting || templates.length === 0}
               >
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
@@ -197,8 +241,9 @@ export function HomePage() {
               className="primary-button"
               type="button"
               onClick={handleCreateBoard}
+              disabled={isSubmitting}
             >
-              Create board
+              {openingPanel === "create" ? "Opening board…" : "Create board"}
             </button>
           </section>
 
@@ -222,6 +267,8 @@ export function HomePage() {
                 aria-label="Join board ID"
                 value={joinBoardId}
                 onChange={(event) => setJoinBoardId(event.target.value)}
+                disabled={isSubmitting}
+                autoComplete="off"
               />
             </div>
 
@@ -234,6 +281,8 @@ export function HomePage() {
                 onChange={(event) =>
                   setJoinShareCode(event.target.value.toUpperCase())
                 }
+                disabled={isSubmitting}
+                autoComplete="off"
               />
             </div>
 
@@ -244,6 +293,7 @@ export function HomePage() {
                 aria-label="Join display name"
                 value={joinDisplayName}
                 onChange={(event) => setJoinDisplayName(event.target.value)}
+                disabled={isSubmitting}
               />
             </div>
 
@@ -251,8 +301,9 @@ export function HomePage() {
               className="secondary-button"
               type="button"
               onClick={handleJoinBoard}
+              disabled={isSubmitting}
             >
-              Join board
+              {openingPanel === "join" ? "Opening board…" : "Join board"}
             </button>
           </section>
         </div>
