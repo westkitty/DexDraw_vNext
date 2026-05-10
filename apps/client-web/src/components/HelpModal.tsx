@@ -33,11 +33,7 @@ export function HelpModal({ topic, onClose }: HelpModalProps) {
   }, [onClose]);
 
   return (
-    <div
-      className="help-modal-backdrop"
-      role="presentation"
-      onClick={onClose}
-    >
+    <div className="help-modal-backdrop" role="presentation">
       <dialog
         className="help-modal"
         open
@@ -46,7 +42,6 @@ export function HelpModal({ topic, onClose }: HelpModalProps) {
           event.preventDefault();
           onClose();
         }}
-        onClick={(event) => event.stopPropagation()}
       >
         <div className="help-modal-header">
           <div className="help-modal-heading">
