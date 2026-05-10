@@ -54,63 +54,100 @@
   mix-blend-mode: multiply;
 }
 
-/* Make the cursor trail black and brush-like instead of orange glow. */
+/* Liquid ink: an irregular wet pool with separate droplets. */
 .ink-drop {
-  width: 48px;
-  height: 18px;
-  border-radius: 70% 42% 64% 38%;
+  width: 54px;
+  height: 24px;
+  border-radius: 62% 48% 70% 34%;
   background: radial-gradient(
-      ellipse at 28% 48%,
-      rgba(0, 0, 0, 0.95),
-      rgba(0, 0, 0, 0.78) 38%,
-      transparent 72%
+      ellipse at 32% 48%,
+      rgba(0, 0, 0, 0.96),
+      rgba(0, 0, 0, 0.82) 42%,
+      rgba(0, 0, 0, 0.2) 66%,
+      transparent 76%
     ),
     radial-gradient(
-      circle at 74% 62%,
-      rgba(0, 0, 0, 0.86),
-      rgba(0, 0, 0, 0.46) 28%,
-      transparent 56%
+      circle at 76% 58%,
+      rgba(0, 0, 0, 0.9),
+      rgba(0, 0, 0, 0.54) 30%,
+      transparent 58%
     );
-  box-shadow: -18px 4px 0 -9px rgba(0, 0, 0, 0.74), 14px 10px 0 -10px
-    rgba(0, 0, 0, 0.64), 3px 18px 0 -12px rgba(0, 0, 0, 0.56);
-  filter: blur(0.35px) contrast(1.35);
+  box-shadow: -20px 5px 0 -10px rgba(0, 0, 0, 0.78), 16px 11px 0 -11px
+    rgba(0, 0, 0, 0.72), 5px 22px 0 -13px rgba(0, 0, 0, 0.64),
+    -6px 18px 0 -14px rgba(0, 0, 0, 0.58);
+  filter: blur(0.25px) contrast(1.55) saturate(0.1);
   mix-blend-mode: multiply;
-  transform-origin: 20% 50%;
+  transform-origin: 24% 52%;
+}
+
+.ink-drop::before,
+.ink-drop::after {
+  content: "";
+  position: absolute;
+  display: block;
+  border-radius: 999px 999px 999px 32px;
+  background: rgba(0, 0, 0, 0.78);
+  pointer-events: none;
+}
+
+.ink-drop::before {
+  width: 9px;
+  height: 22px;
+  left: 15px;
+  top: 14px;
+  transform: rotate(8deg);
+  filter: blur(0.2px);
+}
+
+.ink-drop::after {
+  width: 7px;
+  height: 15px;
+  right: 11px;
+  top: 16px;
+  transform: rotate(-14deg);
+  opacity: 0.72;
 }
 
 @keyframes inkFade {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) rotate(-8deg) scaleX(0.3) scaleY(0.72);
+    transform: translate(-50%, -50%) rotate(-9deg) scaleX(0.22) scaleY(0.72);
   }
 
-  18% {
-    opacity: 0.9;
-    transform: translate(-50%, -50%) rotate(-5deg) scaleX(1.15) scaleY(0.86);
+  16% {
+    opacity: 0.94;
+    transform: translate(-50%, -50%) rotate(-4deg) scaleX(1.08) scaleY(0.9);
+  }
+
+  64% {
+    opacity: 0.52;
+    transform: translate(-50%, -45%) rotate(2deg) scaleX(1.55) scaleY(0.72);
   }
 
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) rotate(4deg) scaleX(2.2) scaleY(0.54);
+    transform: translate(-50%, -34%) rotate(5deg) scaleX(2.3) scaleY(0.5);
   }
 }
 
-/* Board chrome: fold panels by default and stack them in predictable lanes. */
+/* Board chrome: visually consolidate panels into two compact docks. */
 .board-topbar {
   pointer-events: none;
 }
 
 .chrome-panel {
-  width: min(270px, calc(100vw - 28px));
-  max-width: min(270px, calc(100vw - 28px));
+  width: min(280px, calc(100vw - 28px));
+  max-width: min(280px, calc(100vw - 28px));
   pointer-events: auto;
   opacity: 0.92;
+  border-radius: 16px;
 }
 
 .chrome-panel:hover,
 .chrome-panel:focus-within,
 .chrome-panel.is-dragged {
   z-index: 80;
+  opacity: 0.99;
 }
 
 .chrome-drag-handle {
@@ -141,24 +178,30 @@
 .chrome-panel--tools {
   top: 14px;
   left: 14px;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
 .chrome-panel--edit {
-  top: 62px;
+  top: 51px;
   left: 14px;
   right: auto;
+  border-radius: 8px;
 }
 
 .chrome-panel--checkpoints {
-  top: 110px;
+  top: 88px;
   left: 14px;
   right: auto;
+  border-radius: 8px;
 }
 
 .chrome-panel--role {
-  top: 158px;
+  top: 125px;
   left: 14px;
   bottom: auto;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
 }
 
 .chrome-panel--details {
@@ -169,12 +212,15 @@
 .chrome-panel--status {
   top: 14px;
   right: 14px;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
 .chrome-panel--metrics {
-  top: 62px;
+  top: 51px;
   right: 14px;
   bottom: auto;
+  border-radius: 8px;
 }
 
 .chrome-panel--exports {
