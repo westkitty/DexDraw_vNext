@@ -28,10 +28,9 @@ export function MetricsStrip({
   onOpenHelp,
 }: Props) {
   return (
-    <div
+    <output
       className="metrics-strip"
       data-testid="metrics-strip"
-      role="status"
       aria-label="Board status metrics"
       aria-live="polite"
       aria-atomic="true"
@@ -77,6 +76,6 @@ export function MetricsStrip({
       >
         redo ×{redoCount}
       </span>
-    </div>
+    </output>
   );
 }
