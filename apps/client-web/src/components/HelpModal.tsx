@@ -33,7 +33,11 @@ export function HelpModal({ topic, onClose }: HelpModalProps) {
   }, [onClose]);
 
   return (
-    <div className="help-modal-backdrop" onMouseDown={onClose}>
+    <div
+      className="help-modal-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
       <dialog
         className="help-modal"
         open
@@ -42,13 +46,7 @@ export function HelpModal({ topic, onClose }: HelpModalProps) {
           event.preventDefault();
           onClose();
         }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onClose();
-          }
-        }}
-        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
       >
         <div className="help-modal-header">
           <div className="help-modal-heading">
