@@ -1,0 +1,106 @@
+/* UX refinements layered after the base stylesheet. */
+
+.gateway[data-gateway-phase="opening"] .gateway-video {
+  opacity: 0.9;
+}
+
+.gateway[data-gateway-phase="ready"] .gateway-video,
+.gateway[data-gateway-phase="exiting"] .gateway-video {
+  opacity: 0.38;
+  filter: saturate(0.82) contrast(1.08);
+}
+
+.gateway-content {
+  width: min(92vw, 560px);
+}
+
+.gateway-status,
+.gateway-barrier {
+  border: 1px solid rgba(255, 248, 239, 0.2);
+  border-radius: 28px;
+  background: linear-gradient(
+      135deg,
+      rgba(255, 248, 239, 0.12),
+      rgba(255, 248, 239, 0.035)
+    ),
+    rgba(6, 7, 10, 0.54);
+  box-shadow:
+    0 28px 84px rgba(0, 0, 0, 0.48),
+    inset 0 1px rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.gateway-status {
+  margin: 0;
+  padding: 18px 22px;
+  color: rgba(255, 248, 239, 0.78);
+  font-size: 0.96rem;
+  letter-spacing: 0.04em;
+}
+
+.gateway-barrier {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: clamp(28px, 6vw, 54px);
+  animation: gatewayBarrierIn 560ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.gateway-kicker {
+  margin: 0;
+  color: rgba(255, 248, 239, 0.64);
+  font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.gateway-barrier .gateway-title {
+  margin: 0;
+}
+
+.gateway-enter:disabled,
+.primary-button:disabled,
+.secondary-button:disabled,
+.tool-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
+.primary-button:disabled:hover,
+.secondary-button:disabled:hover,
+.tool-button:disabled:hover,
+.gateway-enter:disabled:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.field input:disabled,
+.field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.board-error[role="alert"] {
+  border: 1px solid rgba(248, 113, 113, 0.24);
+}
+
+@keyframes gatewayBarrierIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gateway-barrier {
+    animation: none;
+  }
+}
