@@ -15,12 +15,18 @@ function clampZoom(value: number) {
 function getTouchDistance(event: TouchEvent) {
   if (event.touches.length < 2) return null;
   const [first, second] = Array.from(event.touches);
-  return Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
+  return Math.hypot(
+    first.clientX - second.clientX,
+    first.clientY - second.clientY,
+  );
 }
 
 function applyZoom(nextZoom: number) {
   zoom = clampZoom(nextZoom);
-  document.documentElement.style.setProperty("--dexdraw-canvas-zoom", String(zoom));
+  document.documentElement.style.setProperty(
+    "--dexdraw-canvas-zoom",
+    String(zoom),
+  );
   const scaleLabel = document.querySelector<HTMLElement>("[data-zoom-scale]");
   if (scaleLabel) {
     scaleLabel.textContent = `${Math.round(zoom * 100)}%`;
@@ -39,12 +45,16 @@ function ensureControls() {
     <button type="button" class="canvas-zoom-button" data-zoom-in aria-label="Zoom in">+</button>
   `;
 
-  controls.querySelector<HTMLButtonElement>("[data-zoom-out]")?.addEventListener("click", () => {
-    applyZoom(zoom - ZOOM_STEP);
-  });
-  controls.querySelector<HTMLButtonElement>("[data-zoom-in]")?.addEventListener("click", () => {
-    applyZoom(zoom + ZOOM_STEP);
-  });
+  controls
+    .querySelector<HTMLButtonElement>("[data-zoom-out]")
+    ?.addEventListener("click", () => {
+      applyZoom(zoom - ZOOM_STEP);
+    });
+  controls
+    .querySelector<HTMLButtonElement>("[data-zoom-in]")
+    ?.addEventListener("click", () => {
+      applyZoom(zoom + ZOOM_STEP);
+    });
 
   document.body.appendChild(controls);
   return controls;
@@ -58,8 +68,16 @@ function attachCanvas(canvas: SVGSVGElement) {
 }
 
 function handleWheel(event: WheelEvent) {
-  const canvas = document.querySelector<SVGSVGElement>("[data-testid='board-canvas']");
-  if (!canvas || !(event.target instanceof Node) || !canvas.contains(event.target)) return;
+  const canvas = document.querySelector<SVGSVGElement>(
+    "[data-testid='board-canvas']",
+  );
+  if (
+    !canvas ||
+    !(event.target instanceof Node) ||
+    !canvas.contains(event.target)
+  ) {
+    return;
+  }
   event.preventDefault();
   const delta = event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
   applyZoom(zoom + delta);
@@ -73,14 +91,30 @@ function handleKeyDown(event: KeyboardEvent) {
 }
 
 function handleTouchStart(event: TouchEvent) {
-  const canvas = document.querySelector<SVGSVGElement>("[data-testid='board-canvas']");
-  if (!canvas || !(event.target instanceof Node) || !canvas.contains(event.target)) return;
+  const canvas = document.querySelector<SVGSVGElement>(
+    "[data-testid='board-canvas']",
+  );
+  if (
+    !canvas ||
+    !(event.target instanceof Node) ||
+    !canvas.contains(event.target)
+  ) {
+    return;
+  }
   lastTouchDistance = getTouchDistance(event);
 }
 
 function handleTouchMove(event: TouchEvent) {
-  const canvas = document.querySelector<SVGSVGElement>("[data-testid='board-canvas']");
-  if (!canvas || !(event.target instanceof Node) || !canvas.contains(event.target)) return;
+  const canvas = document.querySelector<SVGSVGElement>(
+    "[data-testid='board-canvas']",
+  );
+  if (
+    !canvas ||
+    !(event.target instanceof Node) ||
+    !canvas.contains(event.target)
+  ) {
+    return;
+  }
   const distance = getTouchDistance(event);
   if (distance === null || lastTouchDistance === null) return;
   event.preventDefault();
@@ -93,7 +127,9 @@ function handleTouchEnd() {
 }
 
 function syncZoomUi() {
-  const canvas = document.querySelector<SVGSVGElement>("[data-testid='board-canvas']");
+  const canvas = document.querySelector<SVGSVGElement>(
+    "[data-testid='board-canvas']",
+  );
   const shell = document.querySelector(".board-shell");
   const control = ensureControls();
   if (canvas && shell) {
