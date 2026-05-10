@@ -98,7 +98,9 @@ test("metrics strip updates object count after drawing", async ({ page }) => {
   await expect(page.getByTestId("metric-objects")).toContainText("1");
 });
 
-test("metrics strip updates selected count after selecting", async ({ page }) => {
+test("metrics strip updates selected count after selecting", async ({
+  page,
+}) => {
   await page.goto("/");
   await enterThroughGateway(page);
 
