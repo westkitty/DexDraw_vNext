@@ -7,9 +7,6 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:5173",
     headless: true,
-    // The gateway is mandatory on fresh loads; tests explicitly click through it.
-    // Keep the storage file harmless for older test harness compatibility.
-    storageState: "tests/e2e/.auth/entered.json",
   },
   webServer: {
     command: "bash scripts/start-dev-servers.sh",
