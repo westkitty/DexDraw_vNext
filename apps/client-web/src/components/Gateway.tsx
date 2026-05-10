@@ -101,14 +101,12 @@ export function Gateway({ children }: { children: ReactNode }) {
         onEnded={markAnimationComplete}
         onError={markAnimationComplete}
       />
-      <div className="gateway-content">
-        {animationComplete ? (
+      {animationComplete ? (
+        <div className="gateway-content">
           <section
             className="gateway-barrier"
             aria-label="DexDraw canvas entry barrier"
           >
-            <p className="gateway-kicker">Opening sequence complete</p>
-            <h1 className="gateway-title">DexDraw</h1>
             <p className="gateway-subtitle">
               Collaborative visual thinking for boards, sketches and structured
               creative work.
@@ -126,12 +124,8 @@ export function Gateway({ children }: { children: ReactNode }) {
               </button>
             </div>
           </section>
-        ) : (
-          <p className="gateway-status" role="status" aria-live="polite">
-            Opening DexDraw. The canvas unlocks after the sequence.
-          </p>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
