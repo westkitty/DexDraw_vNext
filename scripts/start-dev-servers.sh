@@ -112,7 +112,10 @@ done
 echo "API is ready after ${ELAPSED}s"
 
 echo "Starting client server (port $CLIENT_PORT)..."
-pnpm --filter @dexdraw/client-web dev -- --host "$CLIENT_HOST" --port "$CLIENT_PORT" &
+# pnpm run-script in this workspace passes the separator literally here, so do
+# not use an extra "--". Binding Vite to 127.0.0.1 keeps it aligned with the
+# readiness probe and Playwright baseURL instead of macOS resolving to [::1].
+pnpm --filter @dexdraw/client-web dev --host "$CLIENT_HOST" --port "$CLIENT_PORT" &
 CLIENT_PID=$!
 
 # Wait for client with timeout
