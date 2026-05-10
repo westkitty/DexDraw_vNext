@@ -72,7 +72,6 @@ function getEmptyCanvasCopy(activeTool?: string) {
         title: "Laser points, it does not create",
         body: "Use it to direct collaborators, then switch tools to make objects.",
       };
-    case "pen":
     default:
       return {
         title: "Drag to draw your first stroke",
