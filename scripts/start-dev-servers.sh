@@ -14,20 +14,42 @@ API_HEALTH_URL="http://${API_HOST}:${API_PORT}/health"
 CLIENT_URL="http://${CLIENT_HOST}:${CLIENT_PORT}"
 API_PROXY_URL="http://${CLIENT_HOST}:${CLIENT_PORT}/api/templates"
 
+kill_pid_list() {
+  if [[ $# -eq 0 ]]; then
+    return 0
+  fi
+  kill -9 "$@" 2>/dev/null || true
+}
+
+pids_on_port() {
+  local port="$1"
+  lsof -ti TCP:"$port" 2>/dev/null || true
+}
+
+kill_port_processes() {
+  local port="$1"
+  local pids
+  pids=$(pids_on_port "$port")
+  if [[ -n "$pids" ]]; then
+    echo "Killing stale processes on port $port..."
+    # shellcheck disable=SC2086
+    kill_pid_list $pids
+    sleep 0.5
+  fi
+}
+
 # Kill any stale processes on our ports before starting
 kill_stale_processes() {
-  for port in "$API_PORT" "$CLIENT_PORT"; do
-    if lsof -i ":$port" &>/dev/null 2>&1; then
-      echo "Killing stale processes on port $port..."
-      lsof -ti ":$port" | xargs -r kill -9 2>/dev/null || true
-      sleep 0.5
-    fi
-  done
+  kill_port_processes "$API_PORT"
+  kill_port_processes "$CLIENT_PORT"
 }
 
 cleanup() {
   echo "Shutting down dev servers..."
   # Kill child processes on exit
+  if [[ -n "${MONITOR_PID:-}" ]]; then
+    kill "$MONITOR_PID" 2>/dev/null || true
+  fi
   if [[ -n "${API_PID:-}" ]]; then
     kill "$API_PID" 2>/dev/null || true
   fi
@@ -36,8 +58,13 @@ cleanup() {
   fi
   # Wait for cleanup
   sleep 0.5
-  # Force kill any remaining processes
-  jobs -p | xargs -r kill -9 2>/dev/null || true
+  # Force kill any remaining background jobs.
+  local job_pids
+  job_pids=$(jobs -p || true)
+  if [[ -n "$job_pids" ]]; then
+    # shellcheck disable=SC2086
+    kill_pid_list $job_pids
+  fi
 }
 
 trap cleanup EXIT
