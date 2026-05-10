@@ -41,14 +41,49 @@ type ToolbarProps = {
   ) => ReactNode;
 };
 
-const tools: Array<{ id: Tool; label: string }> = [
-  { id: "select", label: "Select" },
-  { id: "pen", label: "Pen" },
-  { id: "rectangle", label: "Rectangle" },
-  { id: "ellipse", label: "Ellipse" },
-  { id: "text", label: "Text" },
-  { id: "note", label: "Note" },
-  { id: "laser", label: "Laser" },
+const tools: Array<{ id: Tool; label: string; hint: string; shortcut: string }> = [
+  {
+    id: "select",
+    label: "Select",
+    hint: "Move, resize, edit, and multi-select existing objects.",
+    shortcut: "Esc clears selection",
+  },
+  {
+    id: "pen",
+    label: "Pen",
+    hint: "Draw freehand strokes directly on the canvas.",
+    shortcut: "Drag to draw",
+  },
+  {
+    id: "rectangle",
+    label: "Rectangle",
+    hint: "Drag from one corner to create a rectangle.",
+    shortcut: "Drag to size",
+  },
+  {
+    id: "ellipse",
+    label: "Ellipse",
+    hint: "Drag from center bounds to create an ellipse.",
+    shortcut: "Drag to size",
+  },
+  {
+    id: "text",
+    label: "Text",
+    hint: "Place a text object, then double-click later to edit it.",
+    shortcut: "Double-click edits",
+  },
+  {
+    id: "note",
+    label: "Note",
+    hint: "Place a sticky note for structured thoughts.",
+    shortcut: "Double-click edits",
+  },
+  {
+    id: "laser",
+    label: "Laser",
+    hint: "Point temporarily for collaborators without creating objects.",
+    shortcut: "Hold and move",
+  },
 ];
 
 export function Toolbar({
@@ -76,6 +111,7 @@ export function Toolbar({
   renderPanel,
 }: ToolbarProps) {
   const hasSelection = selectedCount > 0;
+  const activeToolConfig = tools.find((item) => item.id === activeTool) ?? tools[0];
   const panel =
     renderPanel ??
     ((id: string, className: string, label: string, children: ReactNode) => (
@@ -90,21 +126,36 @@ export function Toolbar({
         "tools",
         "toolbar toolbar--tools",
         "Board drawing tools",
-        <div className="toolbar-group">
-          {tools.map((tool) => (
-            <button
-              key={tool.id}
-              className="tool-button"
-              type="button"
-              data-active={activeTool === tool.id}
-              aria-pressed={activeTool === tool.id}
-              disabled={tool.id !== "select" && !canDraw}
-              onClick={() => onToolChange(tool.id)}
-            >
-              {tool.label}
-            </button>
-          ))}
-        </div>,
+        <>
+          <div className="toolbar-context" aria-live="polite">
+            <span className="toolbar-context-label">Active tool</span>
+            <strong>{activeToolConfig.label}</strong>
+            <small>{activeToolConfig.hint}</small>
+            <small className="toolbar-shortcut">{activeToolConfig.shortcut}</small>
+          </div>
+          <div className="toolbar-group toolbar-group--tools" role="toolbar" aria-label="Drawing tools">
+            {tools.map((tool) => (
+              <button
+                key={tool.id}
+                className="tool-button"
+                type="button"
+                data-active={activeTool === tool.id}
+                aria-pressed={activeTool === tool.id}
+                aria-label={`${tool.label}: ${tool.hint}`}
+                disabled={tool.id !== "select" && !canDraw}
+                title={`${tool.label} — ${tool.hint}`}
+                onClick={() => onToolChange(tool.id)}
+              >
+                <span>{tool.label}</span>
+              </button>
+            ))}
+          </div>
+          {!canDraw ? (
+            <p className="toolbar-note" role="note">
+              View-only access. Drawing tools are locked for this session.
+            </p>
+          ) : null}
+        </>,
       )}
 
       {panel(
@@ -112,37 +163,47 @@ export function Toolbar({
         "toolbar toolbar--edit",
         "Board edit controls",
         <>
-          <div className="toolbar-group">
+          <div className="toolbar-context">
+            <span className="toolbar-context-label">Selection</span>
+            <strong>{hasSelection ? `${selectedCount} selected` : "Nothing selected"}</strong>
+            <small>
+              {hasSelection
+                ? "Use edit controls, keyboard nudges, or arrange buttons."
+                : "Switch to Select and click an object to edit it."}
+            </small>
+          </div>
+
+          <div className="toolbar-group" role="toolbar" aria-label="Undo and redo controls">
             <button
               className="secondary-button"
               type="button"
               onClick={onUndo}
               disabled={undoCount === 0}
-              aria-label="Undo"
-              title="Undo (⌘Z)"
+              aria-label={`Undo. ${undoCount} undo steps available.`}
+              title="Undo (⌘Z / Ctrl+Z)"
             >
-              Undo
+              Undo <span className="button-count">{undoCount}</span>
             </button>
             <button
               className="secondary-button"
               type="button"
               onClick={onRedo}
               disabled={redoCount === 0}
-              aria-label="Redo"
-              title="Redo (⌘⇧Z)"
+              aria-label={`Redo. ${redoCount} redo steps available.`}
+              title="Redo (⌘⇧Z / Ctrl+Shift+Z)"
             >
-              Redo
+              Redo <span className="button-count">{redoCount}</span>
             </button>
           </div>
 
-          <div className="toolbar-group">
+          <div className="toolbar-group" role="toolbar" aria-label="Selection arrange controls">
             <button
               className="secondary-button"
               type="button"
               data-testid="duplicate-button"
               onClick={onDuplicate}
               disabled={!hasSelection || !canDraw}
-              title="Duplicate selection (⌘D)"
+              title="Duplicate selection (⌘D / Ctrl+D)"
             >
               Duplicate
             </button>
@@ -153,7 +214,7 @@ export function Toolbar({
               data-testid="arrange-front"
               onClick={() => onArrange("front")}
               disabled={!hasSelection || !canDraw}
-              aria-label="Bring to front"
+              aria-label="Bring selected objects to front"
               title="Bring to front (⌘⇧])"
             >
               Front
@@ -164,7 +225,7 @@ export function Toolbar({
               data-testid="arrange-forward"
               onClick={() => onArrange("forward")}
               disabled={!hasSelection || !canDraw}
-              aria-label="Bring forward"
+              aria-label="Bring selected objects forward"
               title="Bring forward (⌘])"
             >
               Forward
@@ -175,7 +236,7 @@ export function Toolbar({
               data-testid="arrange-backward"
               onClick={() => onArrange("backward")}
               disabled={!hasSelection || !canDraw}
-              aria-label="Send backward"
+              aria-label="Send selected objects backward"
               title="Send backward (⌘[)"
             >
               Backward
@@ -186,17 +247,11 @@ export function Toolbar({
               data-testid="arrange-back"
               onClick={() => onArrange("back")}
               disabled={!hasSelection || !canDraw}
-              aria-label="Send to back"
+              aria-label="Send selected objects to back"
               title="Send to back (⌘⇧[)"
             >
               Back
             </button>
-
-            {hasSelection ? (
-              <span data-testid="selection-count" aria-live="polite">
-                {selectedCount} selected
-              </span>
-            ) : null}
           </div>
         </>,
       )}
@@ -205,49 +260,61 @@ export function Toolbar({
         "checkpoints",
         "toolbar toolbar--checkpoints",
         "Board checkpoint controls",
-        <div className="toolbar-group">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={onSaveCheckpoint}
-            disabled={!canDraw}
-          >
-            Save Checkpoint
-          </button>
-
-          {checkpoints.length > 0 ? (
-            <select
-              data-testid="checkpoint-select"
-              value={selectedCheckpointId ?? ""}
-              onChange={(e) => onSelectCheckpoint(e.target.value)}
+        <>
+          <div className="toolbar-context">
+            <span className="toolbar-context-label">Checkpoints</span>
+            <strong>{checkpoints.length}</strong>
+            <small>Save before risky edits. Restore rewinds the board.</small>
+          </div>
+          <div className="toolbar-group">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={onSaveCheckpoint}
+              disabled={!canDraw}
+              title="Save the current board state as a checkpoint"
             >
-              {checkpoints.map((cp) => {
-                const date = new Date(cp.createdAt);
-                const ts = date.toLocaleString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-                return (
-                  <option key={cp.id} value={cp.id}>
-                    {cp.name} — {ts}
-                  </option>
-                );
-              })}
-            </select>
-          ) : null}
+              Save Checkpoint
+            </button>
 
-          <button
-            className="secondary-button"
-            type="button"
-            data-testid="restore-button"
-            onClick={onRestoreCheckpoint}
-            disabled={!selectedCheckpointId || !canDraw}
-          >
-            Restore
-          </button>
-        </div>,
+            {checkpoints.length > 0 ? (
+              <select
+                data-testid="checkpoint-select"
+                aria-label="Choose checkpoint to restore"
+                value={selectedCheckpointId ?? ""}
+                onChange={(e) => onSelectCheckpoint(e.target.value)}
+              >
+                {checkpoints.map((cp) => {
+                  const date = new Date(cp.createdAt);
+                  const ts = date.toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  return (
+                    <option key={cp.id} value={cp.id}>
+                      {cp.name} — {ts}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <span className="empty-inline">No checkpoints yet</span>
+            )}
+
+            <button
+              className="secondary-button danger-action"
+              type="button"
+              data-testid="restore-button"
+              onClick={onRestoreCheckpoint}
+              disabled={!selectedCheckpointId || !canDraw}
+              title="Restore the selected checkpoint after confirmation"
+            >
+              Restore
+            </button>
+          </div>
+        </>,
       )}
 
       {panel(
@@ -271,32 +338,43 @@ export function Toolbar({
         "exports",
         "toolbar toolbar--exports",
         "Board export controls",
-        <div className="toolbar-group">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={onExportPng}
-            disabled={exportDisabled}
-          >
-            Export PNG
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={onExportMarkdown}
-            disabled={exportDisabled}
-          >
-            Export Markdown
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={onExportPdf}
-            disabled={exportDisabled}
-          >
-            Export PDF
-          </button>
-        </div>,
+        <>
+          <div className="toolbar-context">
+            <span className="toolbar-context-label">Export</span>
+            <strong>{exportDisabled ? "Waiting for content" : "Ready"}</strong>
+            <small>
+              {exportDisabled
+                ? "Add at least one board object before exporting."
+                : "Choose the format that matches the handoff."}
+            </small>
+          </div>
+          <div className="toolbar-group">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={onExportPng}
+              disabled={exportDisabled}
+            >
+              PNG
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={onExportMarkdown}
+              disabled={exportDisabled}
+            >
+              Markdown
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={onExportPdf}
+              disabled={exportDisabled}
+            >
+              PDF
+            </button>
+          </div>
+        </>,
       )}
     </>
   );
