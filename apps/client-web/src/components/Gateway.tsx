@@ -1,20 +1,57 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, SyntheticEvent } from "react";
+
+const GATEWAY_ANIMATION_FALLBACK_MS = 9_000;
 
 export function Gateway({ children }: { children: ReactNode }) {
   const [entered, setEntered] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [animationComplete, setAnimationComplete] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    animationTimerRef.current = setTimeout(() => {
+      setAnimationComplete(true);
+      animationTimerRef.current = null;
+    }, GATEWAY_ANIMATION_FALLBACK_MS);
+
     return () => {
       if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current);
       }
+      if (animationTimerRef.current !== null) {
+        clearTimeout(animationTimerRef.current);
+      }
     };
   }, []);
 
+  function clearAnimationTimer() {
+    if (animationTimerRef.current !== null) {
+      clearTimeout(animationTimerRef.current);
+      animationTimerRef.current = null;
+    }
+  }
+
+  function markAnimationComplete() {
+    clearAnimationTimer();
+    setAnimationComplete(true);
+  }
+
+  function handleVideoMetadata(event: SyntheticEvent<HTMLVideoElement>) {
+    const duration = event.currentTarget.duration;
+    if (!Number.isFinite(duration) || duration <= 0) return;
+
+    clearAnimationTimer();
+    animationTimerRef.current = setTimeout(
+      markAnimationComplete,
+      Math.ceil(duration * 1_000) + 160,
+    );
+  }
+
   function handleEnter() {
+    if (!animationComplete || exiting) return;
+
     const reduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -35,10 +72,14 @@ export function Gateway({ children }: { children: ReactNode }) {
     );
   }
 
+  const phase = exiting ? "exiting" : animationComplete ? "ready" : "opening";
+
   return (
     <div
       className={`gateway${exiting ? " gateway--exiting" : ""}`}
       data-testid="gateway-screen"
+      data-gateway-phase={phase}
+      aria-busy={!animationComplete}
     >
       <video
         className="gateway-video"
@@ -46,25 +87,42 @@ export function Gateway({ children }: { children: ReactNode }) {
         src="/DexDraw_Opening.mp4"
         autoPlay
         muted
-        loop
         playsInline
+        aria-hidden="true"
+        onLoadedMetadata={handleVideoMetadata}
+        onEnded={markAnimationComplete}
+        onError={markAnimationComplete}
       />
       <div className="gateway-content">
-        <p className="gateway-subtitle">
-          Collaborative visual thinking for boards, sketches and structured
-          creative work.
-        </p>
-
-        <div className="gateway-actions">
-          <button
-            className="gateway-enter"
-            data-testid="gateway-enter"
-            type="button"
-            onClick={handleEnter}
+        {animationComplete ? (
+          <section
+            className="gateway-barrier"
+            aria-label="DexDraw canvas entry barrier"
           >
-            Enter
-          </button>
-        </div>
+            <p className="gateway-kicker">Opening sequence complete</p>
+            <h1 className="gateway-title">DexDraw</h1>
+            <p className="gateway-subtitle">
+              Collaborative visual thinking for boards, sketches and structured
+              creative work.
+            </p>
+
+            <div className="gateway-actions">
+              <button
+                className="gateway-enter"
+                data-testid="gateway-enter"
+                type="button"
+                onClick={handleEnter}
+                disabled={exiting}
+              >
+                Enter Canvas
+              </button>
+            </div>
+          </section>
+        ) : (
+          <p className="gateway-status" role="status" aria-live="polite">
+            Opening DexDraw. The canvas unlocks after the sequence.
+          </p>
+        )}
       </div>
     </div>
   );
