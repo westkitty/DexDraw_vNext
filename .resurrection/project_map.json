@@ -1,0 +1,110 @@
+{
+  "commands": [
+    {
+      "category": "build",
+      "command": "npm run build",
+      "source": "package.json:scripts.build"
+    },
+    {
+      "category": "run/dev",
+      "command": "npm run dev",
+      "source": "package.json:scripts.dev"
+    },
+    {
+      "category": "unknown",
+      "command": "npm run format",
+      "source": "package.json:scripts.format"
+    },
+    {
+      "category": "unknown",
+      "command": "npm run lint",
+      "source": "package.json:scripts.lint"
+    },
+    {
+      "category": "test",
+      "command": "npm run test",
+      "source": "package.json:scripts.test"
+    },
+    {
+      "category": "test",
+      "command": "npm run test:e2e",
+      "source": "package.json:scripts.test:e2e"
+    },
+    {
+      "category": "unknown",
+      "command": "npm run typecheck",
+      "source": "package.json:scripts.typecheck"
+    },
+    {
+      "category": "test",
+      "command": "npx playwright test",
+      "source": "playwright.config.*"
+    }
+  ],
+  "duplicate_candidates": [
+    "sibling-near-duplicate: DexDraw",
+    "sibling-near-duplicate: dex"
+  ],
+  "fragile_files": [
+    ".env.example",
+    "apps/client-web/package.json",
+    "apps/client-web/src/components/README.md",
+    "apps/client-web/vite.config.ts",
+    "apps/server-api/package.json",
+    "handoff/DexDraw_vNext_Design_Handoff/README.md",
+    "handoff/DexDraw_vNext_Design_Handoff/scaffold/apps/client-web/package.json",
+    "handoff/DexDraw_vNext_Design_Handoff/scaffold/apps/client-web/src/components/README.md",
+    "handoff/DexDraw_vNext_Design_Handoff/scaffold/apps/server-api/package.json",
+    "handoff/DexDraw_vNext_Design_Handoff/scaffold/package.json",
+    "handoff/DexDraw_vNext_Design_Handoff/scaffold/packages/shared-core/package.json",
+    "handoff/DexDraw_vNext_Design_Handoff/scaffold/packages/shared-protocol/package.json",
+    "package.json",
+    "packages/shared-core/package.json",
+    "packages/shared-protocol/package.json",
+    "playwright.config.ts",
+    "pnpm-lock.yaml",
+    "README.md"
+  ],
+  "git_state": {
+    "available": true,
+    "branch": "main",
+    "dirty": true,
+    "head": "ca7c6083a70235279c9d50520996c2b4f1e3e366",
+    "head_subject": "fix: use semantic output for board metrics",
+    "is_repo": true,
+    "remote_url": "git@github.com:westkitty/DexDraw_vNext.git",
+    "repo_root": "/Users/andrew/DexDraw_vNext",
+    "staged_count": 0,
+    "tracked_modified_count": 0,
+    "untracked_count": 2
+  },
+  "identity": {
+    "name": "DexDraw_vNext",
+    "path": "/Users/andrew/DexDraw_vNext"
+  },
+  "project_type": {
+    "confidence": 0.71,
+    "evidence": [
+      "Found package.json",
+      "Found playwright.config.ts"
+    ],
+    "purpose": "A web or Node.js project named DexDraw vNext.",
+    "type": "node_web_app"
+  },
+  "recommended_next_actions": [
+    "Inspect the current uncommitted Git changes before making new edits.",
+    "Review secret-risk findings and move sensitive values out of tracked files.",
+    "Back up or review fragile configuration files before any risky changes.",
+    "Validate the project with the hinted test command: npm run test",
+    "Validate the project with the hinted run/dev command: npm run dev"
+  ],
+  "scan_timestamp": "2026-06-29T04:21:29+00:00",
+  "scanner_version": "1.1.0",
+  "secret_risks": [
+    {
+      "category": "openai_sk_prefix",
+      "line": 125,
+      "path": "handoff/DexDraw_vNext_Design_Handoff/research-artifact-source.md"
+    }
+  ]
+}

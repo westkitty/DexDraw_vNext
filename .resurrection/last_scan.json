@@ -1,0 +1,135 @@
+{
+  "git_state": {
+    "available": true,
+    "branch": "main",
+    "dirty": true,
+    "head": "ca7c6083a70235279c9d50520996c2b4f1e3e366",
+    "head_subject": "fix: use semantic output for board metrics",
+    "is_repo": true,
+    "remote_url": "git@github.com:westkitty/DexDraw_vNext.git",
+    "repo_root": "/Users/andrew/DexDraw_vNext",
+    "staged_count": 0,
+    "tracked_modified_count": 0,
+    "untracked_count": 2
+  },
+  "identity": {
+    "name": "DexDraw_vNext",
+    "path": "/Users/andrew/DexDraw_vNext"
+  },
+  "project_type": {
+    "confidence": 0.71,
+    "evidence": [
+      "Found package.json",
+      "Found playwright.config.ts"
+    ],
+    "purpose": "A web or Node.js project named DexDraw vNext.",
+    "type": "node_web_app"
+  },
+  "recommended_next_actions": [
+    "Inspect the current uncommitted Git changes before making new edits.",
+    "Review secret-risk findings and move sensitive values out of tracked files.",
+    "Back up or review fragile configuration files before any risky changes.",
+    "Validate the project with the hinted test command: npm run test",
+    "Validate the project with the hinted run/dev command: npm run dev"
+  ],
+  "scan_timestamp": "2026-06-29T04:21:29+00:00",
+  "scanner_version": "1.1.0",
+  "signature": {
+    "git_dirty": {
+      "dirty": true,
+      "staged_count": 0,
+      "tracked_modified_count": 0,
+      "untracked_count": 2
+    },
+    "git_head": "ca7c6083a70235279c9d50520996c2b4f1e3e366",
+    "project_type": "node_web_app",
+    "scanner_version": "1.1.0",
+    "watched_files": {
+      "README.md": {
+        "mtime_ns": 1778436638200046128,
+        "sha256": "2fff6b9e384b81a535b7d964261f75d3130925f4cb73a739b9452ad7a1dd7a4a",
+        "size": 7678
+      },
+      "apps/client-web/index.html": {
+        "mtime_ns": 1778436638200282078,
+        "sha256": "3910f880fd259364cd4769f4fbbb2d5ac6ed712abe2f64674840fd1f54d635b5",
+        "size": 296
+      },
+      "apps/client-web/package.json": {
+        "mtime_ns": 1778436638200393324,
+        "sha256": "9e881ad76a6db33a0ebf90be7d8f9fce3fa8ada278a99e3772f4bef4313494ea",
+        "size": 653
+      },
+      "apps/client-web/src/components/README.md": {
+        "mtime_ns": 1778436638210421344,
+        "sha256": "87087d5921f14faf5ed48512be914d1a1839dfae96c2c33bee7fd44964c742b7",
+        "size": 320
+      },
+      "apps/client-web/vite.config.ts": {
+        "mtime_ns": 1778442467412645661,
+        "sha256": "4e4b6d1821d90203590f54bd46a6177b39ddb302fd7762cfa2e540e2e1a6ab1c",
+        "size": 1090
+      },
+      "apps/server-api/package.json": {
+        "mtime_ns": 1778436638212951880,
+        "sha256": "dfb37ccb08d3642449c2a2186b217d166f68705cd9b8dbc57bcaabfce01a8d22",
+        "size": 749
+      },
+      "handoff/DexDraw_vNext_Design_Handoff/README.md": {
+        "mtime_ns": 1778436638216665249,
+        "sha256": "4d2d99c4fe98663feaaf5582f2ae5e4d8540c84dd818dae6632f7812d33bdcda",
+        "size": 1988
+      },
+      "handoff/DexDraw_vNext_Design_Handoff/scaffold/apps/client-web/package.json": {
+        "mtime_ns": 1778436638219453400,
+        "sha256": "de348a9cfa96b04278774330b58f0d70f939a5a7707a4b04685e24ff1f744c6e",
+        "size": 558
+      },
+      "handoff/DexDraw_vNext_Design_Handoff/scaffold/apps/client-web/src/components/README.md": {
+        "mtime_ns": 1778436638219811221,
+        "sha256": "87087d5921f14faf5ed48512be914d1a1839dfae96c2c33bee7fd44964c742b7",
+        "size": 320
+      },
+      "handoff/DexDraw_vNext_Design_Handoff/scaffold/apps/server-api/package.json": {
+        "mtime_ns": 1778436638219967507,
+        "sha256": "4244bbe2f33303952eccb58b8f2d35eba02fdc979157383ad8b756c70e320e59",
+        "size": 650
+      },
+      "handoff/DexDraw_vNext_Design_Handoff/scaffold/package.json": {
+        "mtime_ns": 1778436638220216331,
+        "sha256": "9285377924d274d693dbd7aaf4cd91e3831622c8134ba32761298cea767c360d",
+        "size": 322
+      },
+      "handoff/DexDraw_vNext_Design_Handoff/scaffold/packages/shared-core/package.json": {
+        "mtime_ns": 1778436638220445448,
+        "sha256": "48028932e0128cce449f1c0ed1fc1be7fe98a8efe5d11acd76345a8bd7d06262",
+        "size": 327
+      },
+      "handoff/DexDraw_vNext_Design_Handoff/scaffold/packages/shared-protocol/package.json": {
+        "mtime_ns": 1778436638220801144,
+        "sha256": "10125a0f54f9907f261429ed92a618cbb951f162b52ee0ed58c0de6c4dc77556",
+        "size": 376
+      },
+      "package.json": {
+        "mtime_ns": 1778436638222813823,
+        "sha256": "e59372ab4eac8869f255a70a4967f6c2b0bd9326baa446a372dd52b63e4148f9",
+        "size": 597
+      },
+      "packages/shared-core/package.json": {
+        "mtime_ns": 1778436638223055689,
+        "sha256": "ecdd0351e8f715fdad0a33da10d43a6ceda55f9790394125e379f377e0f02021",
+        "size": 376
+      },
+      "packages/shared-protocol/package.json": {
+        "mtime_ns": 1778436638223664459,
+        "sha256": "0c5a9208f90be18fdf466210199976287546fb2aba5312c171896c4a7b37d5a1",
+        "size": 425
+      },
+      "playwright.config.ts": {
+        "mtime_ns": 1778445974285858717,
+        "sha256": "d1160f3676246929ad05f5f75cc488d5ada02e4f22349e96a64a056ff349afc8",
+        "size": 373
+      }
+    }
+  }
+}
