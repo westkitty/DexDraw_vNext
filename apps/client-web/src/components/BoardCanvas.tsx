@@ -187,11 +187,11 @@ function ResizeHandles({
     <>
       {corners.map(({ handle, cx, cy }) => (
         <g key={handle} style={{ cursor: `${handle}-resize` }}>
-          {/* Larger touch hit target */}
+          {/* 44px touch hit target (r=22) */}
           <circle
             cx={cx}
             cy={cy}
-            r={16}
+            r={22}
             fill="transparent"
             style={{ pointerEvents: "all" }}
             onPointerDown={(e) => {
