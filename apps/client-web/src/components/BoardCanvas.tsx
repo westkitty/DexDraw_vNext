@@ -22,9 +22,13 @@ type BoardCanvasProps = {
   showResizeHandles?: boolean;
   marquee?: MarqueeRect | null;
   activeTool?: string;
+  zoom?: number;
+  pan?: { x: number; y: number };
+  onWheel?: (event: React.WheelEvent<SVGSVGElement>) => void;
   onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => void;
   onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => void;
-  onPointerUp: () => void;
+  onPointerUp: (event?: ReactPointerEvent<SVGSVGElement>) => void;
+  onPointerCancel?: (event?: ReactPointerEvent<SVGSVGElement>) => void;
   onObjectPointerDown?: (
     id: string,
     event: ReactPointerEvent<SVGElement>,
@@ -182,21 +186,34 @@ function ResizeHandles({
   return (
     <>
       {corners.map(({ handle, cx, cy }) => (
-        <circle
-          key={handle}
-          data-testid={`resize-handle-${handle}`}
-          cx={cx}
-          cy={cy}
-          r={HANDLE_SIZE}
-          fill="#f97316"
-          stroke="white"
-          strokeWidth={2}
-          style={{ cursor: `${handle}-resize`, pointerEvents: "all" }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            onHandlePointerDown(handle, e);
-          }}
-        />
+        <g key={handle} style={{ cursor: `${handle}-resize` }}>
+          {/* Larger touch hit target */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={16}
+            fill="transparent"
+            style={{ pointerEvents: "all" }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onHandlePointerDown(handle, e);
+            }}
+          />
+          <circle
+            data-testid={`resize-handle-${handle}`}
+            cx={cx}
+            cy={cy}
+            r={HANDLE_SIZE}
+            fill="#f97316"
+            stroke="white"
+            strokeWidth={2}
+            style={{ pointerEvents: "all" }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onHandlePointerDown(handle, e);
+            }}
+          />
+        </g>
       ))}
     </>
   );
@@ -213,9 +230,13 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
       showResizeHandles,
       marquee,
       activeTool,
+      zoom = 1,
+      pan = { x: 0, y: 0 },
+      onWheel,
       onPointerDown,
       onPointerMove,
       onPointerUp,
+      onPointerCancel,
       onObjectPointerDown,
       onObjectDoubleClick,
       onResizeHandlePointerDown,
@@ -223,6 +244,9 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
     ref,
   ) {
     const emptyCopy = getEmptyCanvasCopy(activeTool);
+    const viewBoxWidth = 1600 / zoom;
+    const viewBoxHeight = 900 / zoom;
+    const viewBox = `${pan.x} ${pan.y} ${viewBoxWidth} ${viewBoxHeight}`;
 
     function makeObjectHandlers(id: string) {
       return {
@@ -249,13 +273,16 @@ export const BoardCanvas = forwardRef<SVGSVGElement, BoardCanvasProps>(
         ref={ref}
         className="canvas"
         data-testid="board-canvas"
-        viewBox="0 0 1600 900"
+        viewBox={viewBox}
         preserveAspectRatio="none"
         role="img"
         aria-label="Collaborative drawing canvas"
+        style={{ touchAction: "none" }}
+        onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel ?? onPointerUp}
         onPointerLeave={onPointerUp}
       >
         <title>Collaborative drawing canvas</title>

@@ -349,3 +349,33 @@ export function getTemplate(templateId: string) {
     TEMPLATES.find((template) => template.id === templateId) ?? TEMPLATES[0]
   );
 }
+
+export const BoardArchiveCheckpointSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(120),
+  serverSeq: z.number().int().positive().optional(),
+  createdAt: IsoDateSchema,
+});
+export type BoardArchiveCheckpoint = z.infer<
+  typeof BoardArchiveCheckpointSchema
+>;
+
+export const BoardArchiveSchema = z.object({
+  formatVersion: z.literal(1),
+  sourceBoardId: z.string().uuid(),
+  exportedAt: IsoDateSchema,
+  board: z.object({
+    name: z.string().min(1).max(120),
+    templateId: z.string().optional(),
+    createdAt: IsoDateSchema.optional(),
+  }),
+  objects: z.array(BoardObjectSchema),
+  checkpoints: z.array(BoardArchiveCheckpointSchema).default([]),
+});
+export type BoardArchive = z.infer<typeof BoardArchiveSchema>;
+
+export const BoardImportRequestSchema = z.object({
+  displayName: z.string().min(1).max(80),
+  archive: BoardArchiveSchema,
+});
+export type BoardImportRequest = z.infer<typeof BoardImportRequestSchema>;

@@ -1,4 +1,9 @@
-import type { BoardObject } from "@dexdraw/shared-protocol";
+import {
+  type BoardArchive,
+  BoardArchiveSchema,
+  type BoardObject,
+  type CheckpointSummary,
+} from "@dexdraw/shared-protocol";
 
 // Axis-aligned bounding box of a set of board objects.
 export type Bounds = {
@@ -217,6 +222,56 @@ export async function exportSvgToPng(
     const anchor = document.createElement("a");
     anchor.href = pngUrl;
     anchor.download = filename;
+    anchor.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+export function createBoardArchive({
+  boardId,
+  boardTitle,
+  templateId,
+  objects,
+  checkpoints = [],
+}: {
+  boardId: string;
+  boardTitle: string;
+  templateId?: string;
+  objects: BoardObject[];
+  checkpoints?: CheckpointSummary[];
+}): BoardArchive {
+  return BoardArchiveSchema.parse({
+    formatVersion: 1,
+    sourceBoardId: boardId,
+    exportedAt: new Date().toISOString(),
+    board: {
+      name: boardTitle,
+      templateId,
+    },
+    objects,
+    checkpoints: checkpoints.map((cp) => ({
+      id: cp.id,
+      name: cp.name,
+      serverSeq: cp.serverSeq,
+      createdAt: cp.createdAt,
+    })),
+  });
+}
+
+export function exportBoardArchiveJson(
+  archive: BoardArchive,
+  filename: string,
+) {
+  const json = JSON.stringify(archive, null, 2);
+  const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename.endsWith(".json")
+      ? filename
+      : `${filename}.json`;
     anchor.click();
   } finally {
     URL.revokeObjectURL(url);

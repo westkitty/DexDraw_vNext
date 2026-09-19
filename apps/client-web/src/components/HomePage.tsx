@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { createBoard, fetchTemplates, joinBoard } from "../lib/api";
+import {
+  createBoard,
+  fetchTemplates,
+  importBoard,
+  joinBoard,
+} from "../lib/api";
 import {
   setBoardShareCode,
   setBoardToken,
@@ -38,6 +43,10 @@ export function HomePage() {
   const [joinBoardId, setJoinBoardId] = useState("");
   const [joinShareCode, setJoinShareCode] = useState("");
   const [joinDisplayName, setJoinDisplayName] = useState("Guest");
+  const [importDisplayName, setImportDisplayName] = useState("Owner");
+  const [importArchiveData, setImportArchiveData] = useState<unknown | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [activeHelpId, setActiveHelpId] = useState<HelpTopicId | null>(null);
   const [openingPanel, setOpeningPanel] = useState<"create" | "join" | null>(
@@ -165,6 +174,53 @@ export function HomePage() {
       setIsSubmitting(false);
       setOpeningPanel(null);
       setError(reason instanceof Error ? reason.message : "Board join failed.");
+    }
+  }
+
+  function handleImportFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setImportArchiveData(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(String(e.target?.result));
+        setImportArchiveData(json);
+        setError(null);
+      } catch {
+        setError("Selected file is not valid JSON.");
+        setImportArchiveData(null);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleImportBoard() {
+    if (!importArchiveData) {
+      setError("Please select a valid board archive JSON file.");
+      return;
+    }
+    const ownerName = importDisplayName.trim() || "Owner";
+    try {
+      setError(null);
+      setIsSubmitting(true);
+      const response = await importBoard({
+        displayName: ownerName,
+        archive: importArchiveData,
+      });
+
+      setBoardToken(response.boardId, response.ownerToken);
+      setBoardShareCode(response.boardId, response.shareCode);
+      setDisplayName(ownerName);
+      setOpeningPanel("create");
+      scheduleNavigation(response.boardUrl);
+    } catch (reason) {
+      setIsSubmitting(false);
+      setError(
+        reason instanceof Error ? reason.message : "Board import failed.",
+      );
     }
   }
 
@@ -377,6 +433,65 @@ export function HomePage() {
               disabled={isSubmitting}
             >
               {openingPanel === "join" ? "Opening board…" : "Join board"}
+            </button>
+          </section>
+
+          <section
+            className="panel home-panel--import"
+            data-testid="import-panel"
+          >
+            <div className="section-header">
+              <h2>Import</h2>
+              <HelpButton
+                label="Import FAQ"
+                onClick={() => setActiveHelpId("home-overview")}
+              />
+            </div>
+            <p>Import a portable board JSON archive into a brand-new board.</p>
+
+            <div className="field">
+              <label htmlFor="import-file">Board archive (.json)</label>
+              <input
+                id="import-file"
+                type="file"
+                accept=".json,application/json"
+                aria-label="Board archive JSON file"
+                aria-describedby="import-file-hint"
+                onChange={handleImportFileSelect}
+                disabled={isSubmitting}
+                data-testid="import-file-input"
+              />
+              <p className="field-hint" id="import-file-hint">
+                Select a previously exported DexDraw .json archive.
+              </p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="import-display-name">Your name</label>
+              <input
+                id="import-display-name"
+                aria-label="Import display name"
+                aria-describedby="import-display-name-hint"
+                value={importDisplayName}
+                onChange={(event) => setImportDisplayName(event.target.value)}
+                disabled={isSubmitting}
+                required
+                placeholder="Name shown to collaborators"
+                data-testid="import-display-name-input"
+              />
+              <p className="field-hint" id="import-display-name-hint">
+                Owner name for the newly imported board.
+              </p>
+            </div>
+
+            <button
+              className="primary-button"
+              type="button"
+              onClick={handleImportBoard}
+              disabled={isSubmitting || !importArchiveData}
+              data-testid="import-submit-button"
+            >
+              Import board
             </button>
           </section>
         </div>

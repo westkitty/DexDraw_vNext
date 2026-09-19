@@ -4,23 +4,28 @@
 
 | Layer | Tool | Location |
 |---|---|---|
-| Unit (client) | Vitest | `apps/client-web/src/__tests__/` |
-| Unit (server) | Vitest | `apps/server-api/src/__tests__/` |
-| E2E (browser) | Playwright | `tests/e2e/` |
+| Unit (client) | Vitest | `apps/client-web/src/__tests__/` (122 tests: transforms, marquee, resize, hit-test, export, presence, recoveryJournal, viewport) |
+| Server tests | Vitest | `apps/server-api/src/__tests__/` (24 tests: API, store idempotency, conflict resilience, import/export) |
+| Protocol / Core | Vitest | `packages/shared-protocol/`, `packages/shared-core/` (8 tests: schemas, op envelopes, board archives) |
+| Smoke (headless E2E) | Node / Fastify / WS | `scripts/e2e-smoke.ts` (12-stage multi-client concurrent collaboration, reconnection, snapshot convergence, JSON archive roundtrip, touch viewport) |
+| Browser E2E | Playwright | `tests/e2e/` (88 tests) |
 
 ## Running tests
 
 ```bash
-# All unit tests
+# All unit and server tests (154 tests)
 pnpm test
 
 # Client unit tests only
 pnpm --filter @dexdraw/client-web test
 
-# Server unit tests only
+# Server unit & integration tests only
 pnpm --filter @dexdraw/server-api test
 
-# E2E (requires Chromium — install once with the command below)
+# End-to-end multi-client headless collaboration smoke test (12 stages)
+pnpm test:smoke
+
+# E2E browser tests (requires Chromium — install once with the command below)
 pnpm exec playwright install --with-deps chromium
 
 # Stable single-worker run (used by bash scripts/verify.sh --e2e)
@@ -34,7 +39,34 @@ pnpm typecheck
 
 # Lint + format check
 pnpm lint
+
+# Unified local CI verification pipeline
+bash scripts/verify.sh
 ```
+
+## Adversarial Conflict & Resilience Test Suite
+
+Located at `apps/server-api/src/__tests__/conflict.test.ts`, this suite verifies multi-client concurrency and edge-case behavior:
+
+- **Scenario A (Same Object / Same Time):** Two peers mutate different properties of the same object concurrently; monotonic log sequencing guarantees identical convergence across all clients.
+- **Scenario B (Delete vs Edit):** Client A deletes an object while Client B edits it; the delete takes precedence and late edits do not resurrect the deleted object.
+- **Scenario C (Reorder vs Delete):** Client A deletes an object while Client B reorders layer z-indexes; the reorder omits the deleted ID without resurrecting it.
+- **Scenario D (Checkpoint Restore with Active Peers):** Owner triggers a checkpoint restore while peers are actively drawing; server broadcasts `server.snapshot_reset` and all peers reset state immediately.
+- **Scenario E (Board Rename Concurrency):** Simultaneous rename attempts by owner and guest; owner succeeds and broadcasts, while guest receives 403 Forbidden.
+- **Scenarios H & J (Sequence Gap & Catch-up):** Simulates dropped WebSocket frames causing sequence gaps; client requests missing ops via `GET /api/boards/:id/ops?since=N` and recovers cleanly without permanent divergence.
+
+## Import/Export & Idempotency Test Suite
+
+Located at `apps/server-api/src/__tests__/import-export.test.ts`:
+
+- **Board JSON Export & Import:** Exports a board to the versioned `BoardArchiveSchema` JSON format, sanitizes fields, imports into a new board with a fresh ID, and validates preserved object geometry and ordering.
+- **Schema Validation & Error Handling:** Rejects malformed archives and unsupported versions with structured 400 responses.
+- **Duplicate Op Retransmission:** Submitting duplicate `opId`s acknowledges the sender idempotently with the existing `serverSeq` but suppresses duplicate broadcasts to peers.
+
+## Client Recovery Journal & Viewport Tests
+
+- `apps/client-web/src/__tests__/recoveryJournal.test.ts`: Verifies bounded snapshot persistence, pending op queueing, and recovery state in IndexedDB.
+- `apps/client-web/src/__tests__/viewport.test.ts`: Verifies screen-to-board coordinate transforms, zoom boundaries, and the two-pointer pinch-zoom invariant (point under focal center remains invariant).
 
 ## E2E test files
 

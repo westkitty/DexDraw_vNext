@@ -9,14 +9,19 @@ A collaborative, real-time whiteboard. Local-first, self-hosted, server-authorit
 ## Features
 
 - **Gateway shell** — mandatory atmospheric intro with local video; every fresh app load starts with the opening animation, then reveals an entry barrier, then opens into the workspace after user intent
-- **Metrics strip** — persistent status bar showing connection, participants, object/selected/checkpoint/undo/redo counts
+- **Metrics strip & Recovery Center** — persistent status bar showing connection, participants, object/selected/checkpoint/undo/redo counts, with an integrated Recovery Center diagnostics and backup panel
 - **Real-time collaboration** — multiple clients, WebSocket sync, remote cursors and laser pointer
+- **Operation idempotency & deduplication** — monotonic server sequences and op-level UUID deduplication ensure zero phantom mutations on network retries
+- **Sequence gap detection & recovery** — automatic ops-since catch-up and snapshot refresh when network frames are dropped
+- **Local recovery journal** — IndexedDB persistence of last confirmed snapshots and pending mutations for crash recovery and cached viewing
 - **Drawing tools** — freehand pen, rectangle, ellipse, text, sticky note
+- **Mobile & touch gestures** — pointer events, two-finger pinch-zoom and pan, 44px handle touch targets, `touch-action: none` canvas
+- **Viewport navigation** — board-space zoom in/out/reset/fit with coordinate invariant preservation
 - **Editing** — inline text/note editing, selection, multi-select, marquee, drag, resize
 - **Arrange** — z-order (forward/backward/front/back), duplicate, keyboard nudge
 - **Board title** — editable by owner, synced live to all clients
 - **Checkpoints** — named save points; restore rolls back to that snapshot
-- **Export** — PNG (cropped to content), Markdown, PDF
+- **Export & Import** — Portable JSON board archive export & import, PNG (cropped to content), Markdown, PDF
 - **Undo/redo** — per-client, full history
 - **Reconnect/replay** — clients catch up on missed ops after disconnect
 - **Templates** — Blank and Meeting Grid starter boards
@@ -24,14 +29,14 @@ A collaborative, real-time whiteboard. Local-first, self-hosted, server-authorit
 
 ---
 
-## Known Limitations
+## Known Limitations & Design Tradeoffs
 
-- Auth tokens are signed JWTs stored in `sessionStorage` — no user accounts.
-- Board state is persisted to PGlite (an in-process Postgres) in `.dexdraw-data/` — a local directory, not a production DB.
-- Share codes are generated per-board; anyone with the code can join.
-- No rate limiting beyond in-memory per-connection throttling (60 msg/s per client).
-- No horizontal scaling — one process, one PGlite instance.
-- No JSON import/export, no image objects, no infinite canvas.
+- **Auth tokens:** Signed JWTs stored in `sessionStorage` — no user accounts.
+- **Persistence:** Board state is persisted to PGlite (an in-process Postgres) in `.dexdraw-data/` — a local directory, not a distributed production database.
+- **Local recovery vs. offline editing:** Client-side IndexedDB recovery journal provides crash protection, cached viewing, and network drop recovery. It is **not** full offline collaborative editing (no CRDT/Yjs multi-master branch merging).
+- **Share codes:** Generated per-board; anyone with the code can join.
+- **Horizontal scaling:** Single process, single PGlite instance.
+- **Rendering:** SVG DOM renderer (clean vector fidelity and accessibility, not Canvas/WebGL).
 
 Do not deploy with real user data without replacing the storage and auth layers.
 
@@ -74,21 +79,15 @@ pnpm dev
 ## One-Command Verification
 
 ```bash
-# Unit tests, typecheck, build, lint
+# Unit tests, smoke test, typecheck, build, lint
 bash scripts/verify.sh
 
 # Full release verification — includes E2E browser tests (recommended)
 bash scripts/verify.sh --e2e
 ```
 
-`bash scripts/verify.sh` runs: `pnpm install` → `typecheck` → `test` → `build` → `lint`.
+`bash scripts/verify.sh` runs: `pnpm install` → `typecheck` → `test` → `test:smoke` → `build` → `lint`.
 `bash scripts/verify.sh --e2e` additionally runs `pnpm test:e2e --workers=1` for stable E2E results.
-
-Install Playwright browsers once: `pnpm exec playwright install --with-deps chromium`
-
-> **Note:** Vite's WS proxy emits `ECONNREFUSED`/`EPIPE` log messages when the dev server is
-> shut down while WebSocket connections are still open. These are benign teardown artifacts and
-> are filtered from verification output by the custom logger in `apps/client-web/vite.config.ts`.
 
 ---
 
@@ -99,11 +98,12 @@ Install Playwright browsers once: `pnpm exec playwright install --with-deps chro
 | `pnpm dev` | Start server + client with hot-reload |
 | `pnpm build` | Production build of all packages |
 | `pnpm typecheck` | TypeScript type check (no emit) |
-| `pnpm test` | Unit + server tests (vitest) |
+| `pnpm test` | Unit + server tests (vitest, 154 tests) |
+| `pnpm test:smoke` | Multi-client headless collaboration smoke test (12 stages) |
 | `pnpm test:e2e` | E2E browser tests (Playwright) |
 | `pnpm lint` | Lint + format check (Biome) |
 | `pnpm format` | Auto-format (Biome) |
-| `bash scripts/verify.sh` | Local CI: typecheck + test + build + lint |
+| `bash scripts/verify.sh` | Local CI: typecheck + test + smoke + build + lint |
 | `bash scripts/verify.sh --e2e` | Full release verification (adds E2E with `--workers=1`) |
 
 ---

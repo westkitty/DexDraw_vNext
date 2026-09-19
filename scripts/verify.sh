@@ -18,6 +18,9 @@ pnpm typecheck
 echo "--- test"
 pnpm test
 
+echo "--- smoke"
+pnpm test:smoke
+
 echo "--- build"
 pnpm build
 

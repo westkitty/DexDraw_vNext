@@ -16,7 +16,13 @@ import type {
 } from "react";
 import { useParams } from "react-router-dom";
 import { applyCanonicalOperation } from "../lib/boardState";
-import { exportMarkdown, exportSvgToPng, exportToPdf } from "../lib/export";
+import {
+  createBoardArchive,
+  exportBoardArchiveJson,
+  exportMarkdown,
+  exportSvgToPng,
+  exportToPdf,
+} from "../lib/export";
 import { hitTestObjects } from "../lib/hitTest";
 import {
   MARQUEE_THRESHOLD,
@@ -31,6 +37,13 @@ import {
 } from "../lib/objectTransforms";
 import { type RemotePresence, mergePresence } from "../lib/presence";
 import {
+  type PendingOp,
+  clearRecoverySnapshot,
+  formatSnapshotAge,
+  loadRecoverySnapshot,
+  saveRecoverySnapshot,
+} from "../lib/recoveryJournal";
+import {
   type ResizableBounds,
   type ResizeHandle,
   applyResize,
@@ -43,12 +56,20 @@ import {
   getClientId,
   getDisplayName,
 } from "../lib/session";
+import {
+  DEFAULT_VIEWPORT,
+  type ViewportState,
+  clientToBoardCoordinates,
+  fitContentToViewport,
+  zoomAtClientPoint,
+} from "../lib/viewport";
 import { BoardCanvas } from "./BoardCanvas";
 import { HelpButton } from "./HelpButton";
 import { HelpModal } from "./HelpModal";
 import { InlineEditor } from "./InlineEditor";
 import { MetricsStrip } from "./MetricsStrip";
 import { PresencePanel } from "./PresencePanel";
+import { RecoveryCenterModal } from "./RecoveryCenterModal";
 import { type Tool, Toolbar } from "./Toolbar";
 import { HELP_TOPICS, type HelpTopicId } from "./helpContent";
 
@@ -61,7 +82,8 @@ type ChromePanelId =
   | "role"
   | "exports"
   | "status"
-  | "metrics";
+  | "metrics"
+  | "viewport";
 
 type ChromePosition = {
   x: number;
@@ -113,10 +135,18 @@ export function BoardPage() {
   const [chromePositions, setChromePositions] = useState<
     Partial<Record<ChromePanelId, ChromePosition>>
   >({});
+  const [viewport, setViewport] = useState<ViewportState>(DEFAULT_VIEWPORT);
+  const [isRecoveryOpen, setIsRecoveryOpen] = useState(false);
+  const [isCachedView, setIsCachedView] = useState(false);
+  const [recoverySnapshotAge, setRecoverySnapshotAge] =
+    useState<string>("unknown");
+  const [recoveryIssue, setRecoveryIssue] = useState<string | null>(null);
+  const [pendingOpsList, setPendingOpsList] = useState<PendingOp[]>([]);
 
   const socketRef = useRef<WebSocket | null>(null);
   const clientSeqRef = useRef(0);
   const pendingSeqsRef = useRef<Set<number>>(new Set());
+  const pendingOpsRef = useRef<Map<string, PendingOp>>(new Map());
   const serverSeqRef = useRef(0);
   const strokeRef = useRef<Point[]>([]);
   const shapeStartRef = useRef<Point | null>(null);
@@ -142,10 +172,41 @@ export function BoardPage() {
   const resizeStartPosRef = useRef<Point | null>(null);
   const resizeCurrentBoundsRef = useRef<ResizableBounds | null>(null);
   const chromeDragRef = useRef<ChromeDragState | null>(null);
+  const activePointersRef = useRef<
+    Map<number, { clientX: number; clientY: number }>
+  >(new Map());
+  const touchDistanceRef = useRef<number | null>(null);
+  const touchCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const reloadAuthoritativeRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     objectsRef.current = objects;
   }, [objects]);
+
+  // Load recovery snapshot on mount before or during socket connection
+  useEffect(() => {
+    if (!boardId) return;
+    let mounted = true;
+    void loadRecoverySnapshot(boardId).then((cached) => {
+      if (!mounted || !cached) return;
+      if (serverSeqRef.current === 0 && objectsRef.current.length === 0) {
+        setObjects(cached.objects);
+        if (cached.boardTitle) setBoardTitle(cached.boardTitle);
+        serverSeqRef.current = cached.serverSeq;
+        setIsCachedView(true);
+        setRecoverySnapshotAge(formatSnapshotAge(cached.savedAt));
+        if (cached.pendingOps && cached.pendingOps.length > 0) {
+          for (const op of cached.pendingOps) {
+            pendingOpsRef.current.set(op.opId, op);
+          }
+          setPendingOpsList([...pendingOpsRef.current.values()]);
+        }
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [boardId]);
 
   useEffect(() => {
     function onPointerMove(event: PointerEvent) {
@@ -241,6 +302,86 @@ export function BoardPage() {
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
+      }
+    };
+
+    const persistRecoveryState = () => {
+      if (!boardId) return;
+      void saveRecoverySnapshot({
+        boardId,
+        boardTitle,
+        serverSeq: serverSeqRef.current,
+        objects: objectsRef.current,
+        pendingOps: [...pendingOpsRef.current.values()],
+        savedAt: new Date().toISOString(),
+      });
+      setRecoverySnapshotAge("just now");
+    };
+
+    const reloadAuthoritativeSnapshot = async () => {
+      try {
+        const resp = await fetch(`/api/boards/${boardId}/snapshot`, {
+          headers: { authorization: `Bearer ${token}` },
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        serverSeqRef.current = data.serverSeq;
+        setObjects(data.objects);
+        pendingOpsRef.current.clear();
+        setPendingOpsList([]);
+        undoStackRef.current = [];
+        redoStackRef.current = [];
+        setUndoCount(0);
+        setRedoCount(0);
+        setSelectedObjectIds([]);
+        setRecoveryIssue(null);
+        persistRecoveryState();
+      } catch {
+        setRecoveryIssue(
+          "Authoritative snapshot reload failed. Check server connection.",
+        );
+      }
+    };
+    reloadAuthoritativeRef.current = reloadAuthoritativeSnapshot;
+
+    const reconcileSequenceGap = async (since: number) => {
+      try {
+        const resp = await fetch(`/api/boards/${boardId}/ops?since=${since}`, {
+          headers: { authorization: `Bearer ${token}` },
+        });
+        if (!resp.ok) {
+          await reloadAuthoritativeSnapshot();
+          return;
+        }
+
+        const data = (await resp.json()) as OpsSinceResponse;
+        if (data.ops.some((op) => op.opType === "checkpoint.restore")) {
+          await reloadAuthoritativeSnapshot();
+          return;
+        }
+
+        setObjects((current) => {
+          let updated = current;
+          for (const op of data.ops) {
+            if (op.serverSeq > serverSeqRef.current) {
+              serverSeqRef.current = op.serverSeq;
+              const isSelf =
+                op.clientId === clientId || pendingOpsRef.current.has(op.opId);
+              if (isSelf) {
+                pendingOpsRef.current.delete(op.opId);
+              } else {
+                updated = applyCanonicalOperation(updated, op);
+              }
+            }
+          }
+          return updated;
+        });
+
+        setPendingOpsList([...pendingOpsRef.current.values()]);
+        setRecoveryIssue(null);
+        persistRecoveryState();
+      } catch {
+        setRecoveryIssue("Catch-up failed. Authoritative reload required.");
       }
     };
 
@@ -340,12 +481,11 @@ export function BoardPage() {
           setRole(message.role);
           setBoardTitle(message.boardTitle ?? "Untitled Board");
           serverSeqRef.current = message.serverSeq;
-          // Clear stale pending seqs from before the disconnect; any ops that
-          // weren't echoed are now reflected in the server state we're receiving.
+          setIsCachedView(false);
+          setRecoveryIssue(null);
           pendingSeqsRef.current.clear();
-          // Clear stale remote presence — remote clients' positions are unknown
-          // after a reconnect and will re-populate as they send new presence updates.
           setRemotePresence([]);
+
           if (
             previousSeq > 0 &&
             previousSeq < message.serverSeq &&
@@ -355,13 +495,47 @@ export function BoardPage() {
           } else {
             setObjects(message.snapshot);
           }
+
+          // Resend any pending ops that are not yet confirmed in the snapshot
+          if (
+            pendingOpsRef.current.size > 0 &&
+            socket.readyState === WebSocket.OPEN
+          ) {
+            for (const [opId, pendingOp] of pendingOpsRef.current) {
+              const alreadyPresent = message.snapshot.some(
+                // biome-ignore lint/suspicious/noExplicitAny: generic payload check
+                (o: BoardObject) => o.id === (pendingOp.payload as any)?.id,
+              );
+              if (alreadyPresent) {
+                pendingOpsRef.current.delete(opId);
+              } else {
+                socket.send(
+                  JSON.stringify({
+                    type: "client.op",
+                    boardId,
+                    clientId,
+                    clientSeq: pendingOp.clientSeq,
+                    opId,
+                    opType: pendingOp.opType,
+                    payload: pendingOp.payload,
+                    sentAt: pendingOp.sentAt,
+                  }),
+                );
+              }
+            }
+            setPendingOpsList([...pendingOpsRef.current.values()]);
+          }
+
           await loadCheckpoints();
+          persistRecoveryState();
           return;
         }
 
         if (message.type === "server.snapshot_reset") {
           serverSeqRef.current = message.serverSeq;
           pendingSeqsRef.current.clear();
+          pendingOpsRef.current.clear();
+          setPendingOpsList([]);
           setObjects(message.snapshot);
           undoStackRef.current = [];
           redoStackRef.current = [];
@@ -376,6 +550,8 @@ export function BoardPage() {
           dragStartPosRef.current = null;
           dragInitialObjectsRef.current = [];
           isResizingRef.current = false;
+          setRecoveryIssue(null);
+          persistRecoveryState();
           return;
         }
 
@@ -385,18 +561,40 @@ export function BoardPage() {
         }
 
         if (message.type === "server.op") {
-          serverSeqRef.current = Math.max(
-            serverSeqRef.current,
-            message.serverSeq,
-          );
-          // Skip self-echoes: ops we sent ourselves were already applied
-          // optimistically — re-applying them would override local undo/redo.
+          // 1. Duplicate server sequence detection
+          if (message.serverSeq <= serverSeqRef.current) {
+            if (pendingOpsRef.current.has(message.opId)) {
+              pendingOpsRef.current.delete(message.opId);
+              setPendingOpsList([...pendingOpsRef.current.values()]);
+              persistRecoveryState();
+            }
+            return;
+          }
+
+          // 2. Sequence gap detection
+          if (message.serverSeq > serverSeqRef.current + 1) {
+            setRecoveryIssue(
+              `Sequence gap detected: expected #${serverSeqRef.current + 1}, received #${message.serverSeq}. Reconciling...`,
+            );
+            void reconcileSequenceGap(serverSeqRef.current);
+            return;
+          }
+
+          // 3. Sequential normal operation
+          serverSeqRef.current = message.serverSeq;
+          setRecoveryIssue(null);
+
           const isSelfEcho =
-            message.clientId === clientId &&
-            pendingSeqsRef.current.has(message.clientSeq);
+            (message.clientId === clientId &&
+              pendingSeqsRef.current.has(message.clientSeq)) ||
+            pendingOpsRef.current.has(message.opId);
+
           if (isSelfEcho) {
             pendingSeqsRef.current.delete(message.clientSeq);
+            pendingOpsRef.current.delete(message.opId);
+            setPendingOpsList([...pendingOpsRef.current.values()]);
           }
+
           if (message.opType === "checkpoint.create") {
             const payload = message.payload as { id: string; name: string };
             const newCp = {
@@ -406,13 +604,14 @@ export function BoardPage() {
               createdAt: message.createdAt,
             };
             setCheckpoints((prev) => [...prev, newCp]);
-            // Auto-select the newly saved checkpoint
             setSelectedCheckpointId(payload.id);
           } else if (!isSelfEcho) {
             setObjects((current) =>
               applyCanonicalOperation(current, message as ServerOpEnvelope),
             );
           }
+
+          persistRecoveryState();
           return;
         }
 
@@ -470,9 +669,16 @@ export function BoardPage() {
 
   function pointerToSvgPoint(event: ReactPointerEvent<SVGSVGElement>): Point {
     const rect = event.currentTarget.getBoundingClientRect();
+    const board = clientToBoardCoordinates(
+      event.clientX,
+      event.clientY,
+      rect,
+      viewport.pan,
+      viewport.zoom,
+    );
     return {
-      x: ((event.clientX - rect.left) / rect.width) * 1600,
-      y: ((event.clientY - rect.top) / rect.height) * 900,
+      x: board.x,
+      y: board.y,
       pressure: event.pressure || 0.5,
     };
   }
@@ -519,23 +725,53 @@ export function BoardPage() {
     setRedoCount(0);
   }
 
-  function sendRaw(opType: string, payload: unknown): void {
+  function sendRaw(
+    opType: string,
+    payload: unknown,
+    existingOpId?: string,
+  ): void {
+    clientSeqRef.current += 1;
+    const seq = clientSeqRef.current;
+    const opId = existingOpId ?? crypto.randomUUID();
+    const sentAt = new Date().toISOString();
+
+    const pendingOp: PendingOp = {
+      opId,
+      clientSeq: seq,
+      opType,
+      payload,
+      sentAt,
+    };
+    pendingOpsRef.current.set(opId, pendingOp);
+    pendingSeqsRef.current.add(seq);
+    setPendingOpsList([...pendingOpsRef.current.values()]);
+
+    if (boardId) {
+      void saveRecoverySnapshot({
+        boardId,
+        boardTitle,
+        serverSeq: serverSeqRef.current,
+        objects: objectsRef.current,
+        pendingOps: [...pendingOpsRef.current.values()],
+        savedAt: new Date().toISOString(),
+      });
+      setRecoverySnapshotAge("just now");
+    }
+
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
-    clientSeqRef.current += 1;
-    const seq = clientSeqRef.current;
-    pendingSeqsRef.current.add(seq);
+
     socketRef.current.send(
       JSON.stringify({
         type: "client.op",
         boardId,
         clientId,
         clientSeq: seq,
-        opId: crypto.randomUUID(),
+        opId,
         opType,
         payload,
-        sentAt: new Date().toISOString(),
+        sentAt,
       }),
     );
   }
@@ -990,6 +1226,34 @@ export function BoardPage() {
   }
 
   function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
+    activePointersRef.current.set(event.pointerId, {
+      clientX: event.clientX,
+      clientY: event.clientY,
+    });
+
+    if (activePointersRef.current.size >= 2) {
+      shapeStartRef.current = null;
+      strokeRef.current = [];
+      setCurrentStroke([]);
+      isDraggingRef.current = false;
+      dragStartPosRef.current = null;
+      dragInitialObjectsRef.current = [];
+      isMarqueeingRef.current = false;
+      marqueeStartRef.current = null;
+      setMarquee(null);
+
+      const pts = [...activePointersRef.current.values()];
+      touchDistanceRef.current = Math.hypot(
+        pts[0].clientX - pts[1].clientX,
+        pts[0].clientY - pts[1].clientY,
+      );
+      touchCenterRef.current = {
+        x: (pts[0].clientX + pts[1].clientX) / 2,
+        y: (pts[0].clientY + pts[1].clientY) / 2,
+      };
+      return;
+    }
+
     if (role === "view") return;
     if (editingObjectId) return;
 
@@ -1080,6 +1344,62 @@ export function BoardPage() {
   }
 
   function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    if (activePointersRef.current.has(event.pointerId)) {
+      activePointersRef.current.set(event.pointerId, {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+    }
+
+    if (activePointersRef.current.size >= 2) {
+      const pts = [...activePointersRef.current.values()];
+      const newDist = Math.hypot(
+        pts[0].clientX - pts[1].clientX,
+        pts[0].clientY - pts[1].clientY,
+      );
+      const newCenter = {
+        x: (pts[0].clientX + pts[1].clientX) / 2,
+        y: (pts[0].clientY + pts[1].clientY) / 2,
+      };
+
+      if (
+        touchDistanceRef.current &&
+        touchCenterRef.current &&
+        canvasRef.current
+      ) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const scale = newDist / touchDistanceRef.current;
+        const targetZoom = viewport.zoom * scale;
+        const nextVp = zoomAtClientPoint(
+          viewport.zoom,
+          targetZoom,
+          viewport.pan,
+          newCenter.x,
+          newCenter.y,
+          rect,
+        );
+
+        const dx =
+          ((newCenter.x - touchCenterRef.current.x) * (1600 / nextVp.zoom)) /
+          rect.width;
+        const dy =
+          ((newCenter.y - touchCenterRef.current.y) * (900 / nextVp.zoom)) /
+          rect.height;
+
+        setViewport({
+          zoom: nextVp.zoom,
+          pan: {
+            x: Math.round(nextVp.pan.x - dx),
+            y: Math.round(nextVp.pan.y - dy),
+          },
+        });
+
+        touchDistanceRef.current = newDist;
+        touchCenterRef.current = newCenter;
+      }
+      return;
+    }
+
     const point = pointerToSvgPoint(event);
     sendPresence(
       point,
@@ -1181,7 +1501,17 @@ export function BoardPage() {
     setCurrentStroke(nextStroke);
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(event?: ReactPointerEvent<SVGSVGElement>) {
+    if (event) {
+      activePointersRef.current.delete(event.pointerId);
+    } else {
+      activePointersRef.current.clear();
+    }
+    if (activePointersRef.current.size < 2) {
+      touchDistanceRef.current = null;
+      touchCenterRef.current = null;
+    }
+
     if (isMarqueeingRef.current) {
       const rect = marqueeRectRef.current;
       const isShift = marqueeShiftRef.current;
@@ -1454,6 +1784,105 @@ export function BoardPage() {
     });
   }
 
+  function handleExportJson() {
+    if (objects.length === 0) return;
+    const archive = createBoardArchive({
+      boardId,
+      boardTitle,
+      objects,
+      checkpoints,
+    });
+    exportBoardArchiveJson(archive, `${titleSlug()}.dexdraw.json`);
+  }
+
+  function handleZoomIn() {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const next = zoomAtClientPoint(
+      viewport.zoom,
+      viewport.zoom * 1.25,
+      viewport.pan,
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+      rect,
+    );
+    setViewport(next);
+  }
+
+  function handleZoomOut() {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const next = zoomAtClientPoint(
+      viewport.zoom,
+      viewport.zoom / 1.25,
+      viewport.pan,
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+      rect,
+    );
+    setViewport(next);
+  }
+
+  function handleResetZoom() {
+    if (viewport.zoom !== 1.0 || viewport.pan.x !== 0 || viewport.pan.y !== 0) {
+      setViewport(DEFAULT_VIEWPORT);
+    } else {
+      setViewport(fitContentToViewport(objectsRef.current));
+    }
+  }
+
+  function handleWheel(event: React.WheelEvent<SVGSVGElement>) {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      const zoomFactor = event.deltaY < 0 ? 1.08 : 0.92;
+      const next = zoomAtClientPoint(
+        viewport.zoom,
+        viewport.zoom * zoomFactor,
+        viewport.pan,
+        event.clientX,
+        event.clientY,
+        rect,
+      );
+      setViewport(next);
+    } else {
+      event.preventDefault();
+      const dx = (event.deltaX * (1600 / viewport.zoom)) / rect.width;
+      const dy = (event.deltaY * (900 / viewport.zoom)) / rect.height;
+      setViewport((prev) => ({
+        zoom: prev.zoom,
+        pan: {
+          x: Math.round(prev.pan.x + dx),
+          y: Math.round(prev.pan.y + dy),
+        },
+      }));
+    }
+  }
+
+  function handleRetryReconnect() {
+    setStatus("connecting");
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(
+      `${protocol}//${window.location.host}/ws/boards/${boardId}?token=${encodeURIComponent(token ?? "")}`,
+    );
+    socketRef.current = socket;
+  }
+
+  async function handleDiscardLocalRecovery() {
+    pendingOpsRef.current.clear();
+    setPendingOpsList([]);
+    if (boardId) {
+      await clearRecoverySnapshot(boardId);
+    }
+    setIsRecoveryOpen(false);
+    window.location.reload();
+  }
+
   function handleRestoreCheckpoint() {
     if (!selectedCheckpointId) return;
     const cp = checkpoints.find((c) => c.id === selectedCheckpointId);
@@ -1585,6 +2014,7 @@ export function BoardPage() {
           selectedCheckpointId={selectedCheckpointId}
           onToolChange={setTool}
           onExportPng={handleExportPng}
+          onExportJson={handleExportJson}
           onUndo={handleUndo}
           onRedo={handleRedo}
           onDuplicate={handleDuplicate}
@@ -1595,6 +2025,11 @@ export function BoardPage() {
           onExportMarkdown={handleExportMarkdown}
           onExportPdf={handleExportPdf}
           onOpenHelp={() => setActiveHelpId("tools")}
+          onOpenRecovery={() => setIsRecoveryOpen(true)}
+          zoom={viewport.zoom}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onResetZoom={handleResetZoom}
           exportDisabled={objects.length === 0}
           renderPanel={(id, className, label, children) => (
             <ChromePanel
@@ -1652,9 +2087,28 @@ export function BoardPage() {
             undoCount={undoCount}
             redoCount={redoCount}
             onOpenHelp={() => setActiveHelpId("status")}
+            onOpenRecovery={() => setIsRecoveryOpen(true)}
+            isCached={isCachedView}
           />
         </ChromePanel>
       </header>
+
+      {isCachedView && (
+        <div className="cached-view-banner" data-testid="cached-view-banner">
+          <span>
+            <strong>Local cached snapshot:</strong> Saved view from{" "}
+            {recoverySnapshotAge}. Read-only until server connection reconciles.
+          </span>
+          <button
+            type="button"
+            className="cached-view-action"
+            onClick={() => setIsRecoveryOpen(true)}
+            data-testid="banner-open-recovery"
+          >
+            Open Recovery Center
+          </button>
+        </div>
+      )}
 
       {error ? <div className="board-error">{error}</div> : null}
 
@@ -1669,9 +2123,13 @@ export function BoardPage() {
           showResizeHandles={showResizeHandles}
           marquee={marquee}
           activeTool={tool}
+          zoom={viewport.zoom}
+          pan={viewport.pan}
+          onWheel={handleWheel}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
           onObjectPointerDown={handleObjectPointerDown}
           onObjectDoubleClick={handleObjectDoubleClick}
           onResizeHandlePointerDown={handleResizeHandlePointerDown}
@@ -1696,6 +2154,24 @@ export function BoardPage() {
           onClose={() => setActiveHelpId(null)}
         />
       ) : null}
+
+      <RecoveryCenterModal
+        isOpen={isRecoveryOpen}
+        onClose={() => setIsRecoveryOpen(false)}
+        connection={status}
+        serverSeq={serverSeqRef.current}
+        pendingOps={pendingOpsList}
+        cachedSnapshotAge={recoverySnapshotAge}
+        latestCheckpoint={checkpoints.at(-1) ?? null}
+        recoveryIssue={recoveryIssue}
+        isCachedView={isCachedView}
+        onRetryReconnect={handleRetryReconnect}
+        onReloadAuthoritative={() => {
+          void reloadAuthoritativeRef.current?.();
+        }}
+        onExportRecoveryCopy={handleExportJson}
+        onDiscardLocalRecovery={handleDiscardLocalRecovery}
+      />
     </main>
   );
 }

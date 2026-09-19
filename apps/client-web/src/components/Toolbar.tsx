@@ -22,6 +22,7 @@ type ToolbarProps = {
   selectedCheckpointId: string | null;
   onToolChange: (tool: Tool) => void;
   onExportPng: () => void;
+  onExportJson?: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onDuplicate: () => void;
@@ -32,6 +33,11 @@ type ToolbarProps = {
   onExportMarkdown: () => void;
   onExportPdf: () => void;
   onOpenHelp: () => void;
+  onOpenRecovery?: () => void;
+  zoom?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onResetZoom?: () => void;
   exportDisabled: boolean;
   renderPanel?: (
     id: string,
@@ -102,6 +108,7 @@ export function Toolbar({
   selectedCheckpointId,
   onToolChange,
   onExportPng,
+  onExportJson,
   onUndo,
   onRedo,
   onDuplicate,
@@ -112,6 +119,11 @@ export function Toolbar({
   onExportMarkdown,
   onExportPdf,
   onOpenHelp,
+  onOpenRecovery,
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
   exportDisabled,
   renderPanel,
 }: ToolbarProps) {
@@ -342,9 +354,21 @@ export function Toolbar({
       {panel(
         "role",
         "toolbar toolbar--role",
-        "Board role and help controls",
+        "Board role and recovery controls",
         <div className="toolbar-group">
           <span className="status-pill">Role: {roleLabel}</span>
+          {onOpenRecovery && (
+            <button
+              className="secondary-button"
+              type="button"
+              data-testid="toolbar-recovery-button"
+              aria-label="Open Recovery Center"
+              onClick={onOpenRecovery}
+              title="Recovery Center & Diagnostics"
+            >
+              Recovery
+            </button>
+          )}
           <button
             className="help-trigger"
             type="button"
@@ -355,6 +379,46 @@ export function Toolbar({
           </button>
         </div>,
       )}
+
+      {onZoomIn &&
+        onZoomOut &&
+        panel(
+          "viewport",
+          "toolbar toolbar--viewport",
+          "Viewport navigation and zoom controls",
+          <div className="toolbar-group">
+            <button
+              className="secondary-button"
+              type="button"
+              data-testid="zoom-out-button"
+              onClick={onZoomOut}
+              aria-label="Zoom out"
+              title="Zoom out"
+            >
+              −
+            </button>
+            <button
+              className="secondary-button zoom-indicator-button"
+              type="button"
+              data-testid="zoom-reset-button"
+              onClick={onResetZoom}
+              aria-label="Reset or fit content"
+              title="Reset or fit content"
+            >
+              {Math.round((zoom ?? 1) * 100)}%
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              data-testid="zoom-in-button"
+              onClick={onZoomIn}
+              aria-label="Zoom in"
+              title="Zoom in"
+            >
+              +
+            </button>
+          </div>,
+        )}
 
       {panel(
         "exports",
@@ -371,6 +435,18 @@ export function Toolbar({
             </small>
           </div>
           <div className="toolbar-group">
+            {onExportJson && (
+              <button
+                className="secondary-button"
+                type="button"
+                data-testid="export-json-button"
+                onClick={onExportJson}
+                disabled={exportDisabled}
+                title="Export portable board JSON archive"
+              >
+                JSON
+              </button>
+            )}
             <button
               className="secondary-button"
               type="button"

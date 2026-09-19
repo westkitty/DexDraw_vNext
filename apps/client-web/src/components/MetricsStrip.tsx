@@ -15,6 +15,8 @@ type Props = {
   undoCount: number;
   redoCount: number;
   onOpenHelp: () => void;
+  onOpenRecovery?: () => void;
+  isCached?: boolean;
 };
 
 export function MetricsStrip({
@@ -26,6 +28,8 @@ export function MetricsStrip({
   undoCount,
   redoCount,
   onOpenHelp,
+  onOpenRecovery,
+  isCached,
 }: Props) {
   return (
     <output
@@ -43,12 +47,24 @@ export function MetricsStrip({
       >
         FAQ
       </button>
+      {onOpenRecovery && (
+        <button
+          className="recovery-trigger"
+          type="button"
+          aria-label="Open Recovery Center"
+          data-testid="open-recovery-button"
+          onClick={onOpenRecovery}
+        >
+          Recovery
+        </button>
+      )}
       <span
         className="metric"
         data-testid="metric-connection"
         data-status={connection}
       >
         {STATUS_ICON[connection]} {connection}
+        {isCached ? " (cached)" : ""}
       </span>
       <span className="metric" data-testid="metric-participants">
         {participants} {participants === 1 ? "participant" : "participants"}

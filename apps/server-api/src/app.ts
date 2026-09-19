@@ -1,5 +1,8 @@
 import {
+  BoardArchiveSchema,
   BoardCreateRequestSchema,
+  type BoardImportRequest,
+  BoardImportRequestSchema,
   type BoardObject,
   BoardTitleUpdateRequestSchema,
   type ClientOpEnvelope,
@@ -64,6 +67,14 @@ function createServerError(
 
 function sendJson(socket: WebSocket, payload: unknown) {
   socket.send(JSON.stringify(payload));
+}
+
+function sanitizeBoardObject(obj: BoardObject): BoardObject {
+  if (obj.type === "text" || obj.type === "note") {
+    const cleanText = obj.text.replace(/\0/g, "").slice(0, 10000);
+    return { ...obj, text: cleanText };
+  }
+  return obj;
 }
 
 function snapshotFromOps(ops: Array<{ opType: string; payload: unknown }>) {
@@ -182,6 +193,57 @@ export async function buildApp(options: BuildAppOptions = {}) {
     });
   });
 
+  app.post("/api/boards/import", async (request, reply) => {
+    let payload: BoardImportRequest;
+    try {
+      payload = BoardImportRequestSchema.parse(request.body);
+    } catch {
+      return reply
+        .status(400)
+        .send(
+          createServerError(
+            "invalid_payload",
+            "Invalid board archive format.",
+            false,
+          ),
+        );
+    }
+
+    const sanitizedObjects = payload.archive.objects.map(sanitizeBoardObject);
+    const sanitizedTitle = (payload.archive.board.name || "Imported Board")
+      .replace(/\0/g, "")
+      .trim()
+      .slice(0, 120);
+
+    const board = await store.importBoard({
+      name: sanitizedTitle || "Imported Board",
+      displayName: payload.displayName,
+      objects: sanitizedObjects,
+      checkpoints: payload.archive.checkpoints?.map(
+        (cp: { id: string; name: string; createdAt: string }) => ({
+          id: cp.id,
+          name: cp.name.replace(/\0/g, "").slice(0, 120),
+          createdAt: cp.createdAt,
+        }),
+      ),
+    });
+
+    const ownerToken = await createBoardToken(tokenSecret, {
+      boardId: board.boardId,
+      role: "owner",
+      displayName: payload.displayName,
+    });
+
+    return reply.send({
+      boardId: board.boardId,
+      shareCode: board.shareCode,
+      ownerToken,
+      boardUrl: `/boards/${board.boardId}`,
+      name: board.name,
+      templateId: board.templateId,
+    });
+  });
+
   app.post("/api/boards/:boardId/join", async (request, reply) => {
     const params = request.params as { boardId: string };
     const payload = JoinBoardRequestSchema.parse(request.body);
@@ -238,6 +300,68 @@ export async function buildApp(options: BuildAppOptions = {}) {
         objects: snapshotFromOps(ops),
       }),
     );
+  });
+
+  app.get("/api/boards/:boardId/export", async (request, reply) => {
+    const params = request.params as { boardId: string };
+    const authorization = request.headers.authorization;
+    const token = authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+
+    if (!token) {
+      return reply
+        .status(401)
+        .send(createServerError("unauthorized", "Missing token.", false));
+    }
+
+    const verified = await verifyBoardToken(tokenSecret, token).catch(
+      () => null,
+    );
+    if (!verified || verified.boardId !== params.boardId) {
+      return reply
+        .status(403)
+        .send(createServerError("unauthorized", "Invalid token.", false));
+    }
+
+    const [boardRecord, ops] = await Promise.all([
+      store.getBoard(params.boardId),
+      store.getOps(params.boardId),
+    ]);
+
+    if (!boardRecord) {
+      return reply
+        .status(404)
+        .send(createServerError("invalid_payload", "Board not found.", false));
+    }
+
+    const currentObjects = snapshotFromOps(ops);
+    const checkpoints = ops
+      .filter((op) => op.opType === "checkpoint.create")
+      .map((op) => {
+        const payload = op.payload as { id: string; name: string };
+        return {
+          id: payload.id,
+          name: payload.name,
+          serverSeq: op.serverSeq,
+          createdAt: op.createdAt,
+        };
+      });
+
+    const archive = BoardArchiveSchema.parse({
+      formatVersion: 1,
+      sourceBoardId: params.boardId,
+      exportedAt: new Date().toISOString(),
+      board: {
+        name: boardRecord.name,
+        templateId: boardRecord.templateId,
+        createdAt: boardRecord.createdAt,
+      },
+      objects: currentObjects,
+      checkpoints,
+    });
+
+    return reply.send(archive);
   });
 
   app.get("/api/boards/:boardId/checkpoints", async (request, reply) => {
@@ -510,6 +634,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
         }
 
         const canonical = await store.appendOperation(op);
+        if (canonical.isDuplicate) {
+          sendJson(socket, canonical);
+          return;
+        }
+
         for (const peer of room) {
           sendJson(peer.socket, canonical);
         }

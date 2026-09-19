@@ -25,7 +25,9 @@ export default defineConfig({
   customLogger: logger,
   plugins: [react()],
   server: {
+    host: "0.0.0.0",
     port: 5173,
+    allowedHosts: true,
     proxy: {
       "/api": API_TARGET,
       "/ws": {

@@ -63,3 +63,24 @@ export async function joinBoard(
 
   return (await response.json()) as JoinBoardResponse;
 }
+
+export async function importBoard(payload: {
+  displayName: string;
+  archive: unknown;
+}) {
+  const response = await fetch("/api/boards/import", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(
+      errorBody.message ??
+        "Board import failed. Please verify the archive format.",
+    );
+  }
+
+  return (await response.json()) as CreateBoardResponse;
+}

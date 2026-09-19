@@ -28,13 +28,20 @@ type OperationRow = {
   createdAt: string;
 };
 
+export type AppendOperationResult = ServerOpEnvelope & {
+  isDuplicate?: boolean;
+};
+
 export type DexDrawStore = Awaited<ReturnType<typeof createStore>>;
 
 function createShareCode() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
 }
 
-function toServerEnvelope(row: OperationRow): ServerOpEnvelope {
+function toServerEnvelope(
+  row: OperationRow,
+  isDuplicate = false,
+): AppendOperationResult {
   return {
     type: "server.op",
     boardId: row.boardId,
@@ -45,6 +52,7 @@ function toServerEnvelope(row: OperationRow): ServerOpEnvelope {
     opType: row.opType as ClientOpEnvelope["opType"],
     payload: row.payload,
     createdAt: row.createdAt,
+    isDuplicate,
   };
 }
 
@@ -168,7 +176,9 @@ export async function createStore(
         .orderBy(asc(operations.serverSeq));
     },
 
-    async appendOperation(op: ClientOpEnvelope): Promise<ServerOpEnvelope> {
+    async appendOperation(
+      op: ClientOpEnvelope,
+    ): Promise<AppendOperationResult> {
       return serialized(async () => {
         const existing = await db
           .select()
@@ -182,7 +192,7 @@ export async function createStore(
           .limit(1);
 
         if (existing[0]) {
-          return toServerEnvelope(existing[0]);
+          return toServerEnvelope(existing[0], true);
         }
 
         for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -218,6 +228,7 @@ export async function createStore(
               opType: op.opType,
               payload: op.payload,
               createdAt,
+              isDuplicate: false,
             };
           } catch (error) {
             const constraint =
@@ -238,7 +249,7 @@ export async function createStore(
                 )
                 .limit(1);
               if (duplicate[0]) {
-                return toServerEnvelope(duplicate[0]);
+                return toServerEnvelope(duplicate[0], true);
               }
             }
 
@@ -261,6 +272,68 @@ export async function createStore(
         .update(boards)
         .set({ name: title })
         .where(eq(boards.id, boardId));
+    },
+
+    async importBoard(input: {
+      name: string;
+      displayName: string;
+      objects: BoardObject[];
+      checkpoints?: Array<{ id: string; name: string; createdAt: string }>;
+    }) {
+      const boardId = crypto.randomUUID();
+      const createdAt = new Date().toISOString();
+      const shareCode = createShareCode();
+
+      await db.insert(boards).values({
+        id: boardId,
+        name: input.name,
+        templateId: "imported",
+        shareCode,
+        createdAt,
+      });
+
+      let serverSeq = 0;
+      // Sort objects by zIndex to preserve exact stacking order
+      const sortedObjects = [...input.objects].sort(
+        (left, right) => left.zIndex - right.zIndex,
+      );
+
+      for (const object of sortedObjects) {
+        serverSeq += 1;
+        await db.insert(operations).values({
+          boardId,
+          serverSeq,
+          clientId: SYSTEM_CLIENT_ID,
+          clientSeq: serverSeq,
+          opId: crypto.randomUUID(),
+          opType: "object.create",
+          payload: object,
+          createdAt,
+        });
+      }
+
+      if (input.checkpoints && input.checkpoints.length > 0) {
+        for (const cp of input.checkpoints) {
+          serverSeq += 1;
+          await db.insert(operations).values({
+            boardId,
+            serverSeq,
+            clientId: SYSTEM_CLIENT_ID,
+            clientSeq: serverSeq,
+            opId: crypto.randomUUID(),
+            opType: "checkpoint.create",
+            payload: { id: cp.id, name: cp.name },
+            createdAt: cp.createdAt || createdAt,
+          });
+        }
+      }
+
+      return {
+        boardId,
+        shareCode,
+        name: input.name,
+        templateId: "imported",
+      };
     },
 
     async close() {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BoardArchiveSchema,
   BoardCreateRequestSchema,
   BoardObjectSchema,
   ClientOpEnvelopeSchema,
@@ -98,5 +99,52 @@ describe("shared-protocol", () => {
         ref: "abc",
       }).type,
     ).toBe("server.error");
+  });
+
+  it("validates BoardArchiveSchema correctly", () => {
+    const validArchive = {
+      formatVersion: 1,
+      sourceBoardId: "3ec3281a-fd71-4dfe-935f-445aa7c7f8f4",
+      exportedAt: "2026-05-04T00:00:00.000Z",
+      board: {
+        name: "My Exported Board",
+        templateId: "blank",
+      },
+      objects: [
+        {
+          id: "02013d9d-a64c-4a39-b36b-3f10e257b70c",
+          type: "rectangle",
+          x: 10,
+          y: 10,
+          width: 100,
+          height: 50,
+          style: { strokeColor: "#000000" },
+          createdBy: "user-2",
+          createdAt: "2026-05-04T00:00:00.000Z",
+          updatedAt: "2026-05-04T00:00:00.000Z",
+          zIndex: 1,
+        },
+      ],
+      checkpoints: [
+        {
+          id: "6dc0809f-8475-4612-9003-fc1c6257f7c7",
+          name: "Save point 1",
+          createdAt: "2026-05-04T00:00:00.000Z",
+        },
+      ],
+    };
+
+    expect(BoardArchiveSchema.parse(validArchive).formatVersion).toBe(1);
+
+    // Reject unsupported version
+    const invalidVersion = { ...validArchive, formatVersion: 2 };
+    expect(BoardArchiveSchema.safeParse(invalidVersion).success).toBe(false);
+
+    // Reject missing board name
+    const invalidBoard = {
+      ...validArchive,
+      board: { name: "", templateId: "blank" },
+    };
+    expect(BoardArchiveSchema.safeParse(invalidBoard).success).toBe(false);
   });
 });

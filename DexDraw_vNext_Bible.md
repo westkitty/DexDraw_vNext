@@ -3251,3 +3251,88 @@ The follow-up UI repair made the opening gateway mandatory on fresh loads by rem
 - `pnpm test:e2e --workers=1 tests/e2e/gateway.spec.ts tests/e2e/cleanup-copy.spec.ts tests/e2e/theme-default.spec.ts tests/e2e/responsive-layout.spec.ts tests/e2e/help-modal.spec.ts tests/e2e/board-title.spec.ts`: passed, 21/21.
 - `pnpm test:e2e --workers=1`: passed, 88/88.
 - Manual Playwright browser smoke at `http://localhost:5173/`: passed; clearing `dexdraw-entered` still showed the gateway, `gateway-video` used `/DexDraw_Opening.mp4`, home rendered with the `DexDraw` heading, board creation routed to `/boards/...`, `board-canvas` rendered, chrome tools rendered, and console/page errors were empty.
+
+## Entry 44 — v0.1.0-rc1 Hardening: Operation Idempotency, Gap Recovery, Recovery Journal, JSON Portability, Mobile Gestures, and Conflict Resilience
+
+**Date:** 2026-09-19
+
+**Summary:**
+Comprehensive hardening of DexDraw vNext (v0.1.0-rc1) establishing production-grade crash resilience, network tolerance, and multi-client convergence without changing the core architectural commitments (PGlite persistence, SVG canvas renderer, server-authoritative monotonic log, edit-by-default role, and no full user accounts). Key deliverables include:
+1. Operation Idempotency: `opId` deduplication at store level, identical sequence return on retransmission, suppression of phantom peer broadcasts.
+2. Sequence Gap Detection & Replay: Client sequence gap detection, automatic catch-up replay via `GET /api/boards/:id/ops?since=N`, and authoritative snapshot fallback.
+3. Client Recovery Journal: IndexedDB storage (`dexdraw_recovery_journal_v1`) caching last confirmed snapshot and pending mutations, cached view indicator banner, and safe reconciliation on reconnect (with explicit disclaimer: local recovery is not full offline collaborative editing).
+4. Portable Board JSON Export & Import: Zod-validated `BoardArchiveSchema` (v1), sanitization, safe import creating a new board ID by default while preserving compatibility and layering order.
+5. Recovery Center UI: Accessible modal dashboard showing real-time WebSocket connection state, current `serverSeq`, pending unacknowledged ops, cache freshness, local JSON backup export, and manual reconnect/resync triggers.
+6. Adversarial Collaboration & Conflict Suite: Comprehensive server vitest suite verifying concurrent edits on the same object, delete vs edit races, reorder vs delete integrity, checkpoint restore with live peers, and network sequence gap catch-up.
+7. Mobile & Touch Gestures: Unified pointer event pipeline, two-finger pinch-to-zoom and pan, `touch-action: none` canvas, and 44px handle touch targets.
+8. Viewport Navigation: Viewport transform matrix (zoom, pan, fit) maintaining SVG board coordinate authority.
+9. Documentation & Operational Reference: Created `OPERATIONAL_STATE.md`, updated `README.md`, `docs/architecture-roadmap.md`, `docs/release-checklist.md`, `docs/testing.md`, and 12-stage multi-client headless smoke test.
+
+**Files changed:**
+- `DexDraw_vNext_Bible.md`
+- `OPERATIONAL_STATE.md`
+- `README.md`
+- `biome.json`
+- `package.json`
+- `scripts/verify.sh`
+- `scripts/e2e-smoke.ts`
+- `docs/architecture-roadmap.md`
+- `docs/release-checklist.md`
+- `docs/testing.md`
+- `packages/shared-protocol/src/index.ts`
+- `packages/shared-protocol/src/__tests__/index.test.ts`
+- `apps/server-api/src/app.ts`
+- `apps/server-api/src/db/store.ts`
+- `apps/server-api/src/__tests__/conflict.test.ts`
+- `apps/server-api/src/__tests__/import-export.test.ts`
+- `apps/client-web/vite.config.ts`
+- `apps/client-web/src/styles.css`
+- `apps/client-web/src/components/BoardCanvas.tsx`
+- `apps/client-web/src/components/BoardPage.tsx`
+- `apps/client-web/src/components/HomePage.tsx`
+- `apps/client-web/src/components/MetricsStrip.tsx`
+- `apps/client-web/src/components/RecoveryCenterModal.tsx`
+- `apps/client-web/src/components/Toolbar.tsx`
+- `apps/client-web/src/lib/api.ts`
+- `apps/client-web/src/lib/export.ts`
+- `apps/client-web/src/lib/recoveryJournal.ts`
+- `apps/client-web/src/lib/viewport.ts`
+- `apps/client-web/src/__tests__/recoveryJournal.test.ts`
+- `apps/client-web/src/__tests__/viewport.test.ts`
+
+**Implemented:**
+- Added `BoardArchiveSchema`, `BoardArchiveMetadataSchema`, and `ServerOpEnvelopeSchema` to `packages/shared-protocol`.
+- Added `appendOperation` deduplication in `apps/server-api/src/db/store.ts` checking `(board_id, op_id)` and returning `AppendOperationResult { canonicalOp, isDuplicate }`.
+- Added duplicate acknowledgment path in `apps/server-api/src/app.ts` sending `server.op` ACK back to sender while skipping peer broadcast.
+- Implemented `POST /api/boards/import` in `apps/server-api/src/app.ts` accepting validated JSON archive, creating new board ID and share code, populating objects, and returning owner credentials.
+- Created `apps/client-web/src/lib/recoveryJournal.ts` with bounded IndexedDB storage for confirmed snapshots and pending ops.
+- Created `apps/client-web/src/lib/viewport.ts` with coordinate conversions, zoom/pan calculations, and pinch-zoom focal point invariant preservation.
+- Implemented `apps/client-web/src/components/RecoveryCenterModal.tsx` displaying connection health, sequence counters, pending ops, cache freshness, and recovery triggers.
+- Updated `apps/client-web/src/components/BoardCanvas.tsx` with pointer events, two-finger pinch-zoom and pan, and enlarged 44px resize handles.
+- Updated `apps/client-web/src/components/BoardPage.tsx` integrating gap detection, catch-up replay, recovery journal persistence, cached view banner, and Recovery Center modal.
+- Created `apps/server-api/src/__tests__/conflict.test.ts` verifying concurrent conflict Scenarios A through E, H, and J.
+- Created `apps/server-api/src/__tests__/import-export.test.ts` verifying JSON export, import, schema validation, and duplicate op idempotency.
+- Created `scripts/e2e-smoke.ts` executing a 12-stage multi-client headless collaboration smoke test covering concurrent mutations, offline peer mutations, reconnection, convergence, JSON archive export/import, and tablet/mobile viewport navigation.
+- Configured `apps/client-web/vite.config.ts` to bind to `0.0.0.0` with `allowedHosts: true`.
+
+**Reverted / deferred:**
+- Deferred full offline CRDT / Yjs multi-master merge; preserved server-authoritative monotonic log as required.
+- Preserved PGlite database without migrating to distributed external PostgreSQL.
+- Preserved SVG DOM renderer without migrating to Canvas/WebGL.
+
+**Safety constraints preserved:**
+- Server-authoritative ordered log preserved.
+- Monotonic `serverSeq` strictly maintained.
+- Edit-by-default role behavior preserved.
+- No user accounts / no external auth dependency.
+- Gateway opening sequence and entrance barrier preserved.
+- All test IDs (`board-canvas`, `metrics-strip`, etc.) preserved.
+- No `interactionEnhancer.ts` or runtime querySelector DOM mutations.
+
+**Validation:**
+- `pnpm typecheck`: passed (4 of 4 packages, 0 errors).
+- `pnpm lint`: passed (87 files checked, 0 errors).
+- `pnpm test`: passed (154/154 unit & server tests across 15 test files).
+- `pnpm test:smoke`: passed (all 12 multi-client collaboration stages passed).
+- `pnpm build`: passed (client Vite bundle and server tsc compiled cleanly).
+- `bash scripts/verify.sh`: passed (exits 0 with all gates passing).
